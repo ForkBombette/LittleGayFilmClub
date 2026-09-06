@@ -19,7 +19,7 @@ export function setupMovieDetails(movies: Movie[]): void {
   const mystery = document.querySelector<HTMLElement>('#movie-dialog-mystery')!;
   const art = document.querySelector<HTMLElement>('#movie-dialog-art')!;
   document.querySelector('#close-movie-dialog')!.addEventListener('click', () => dialog.close());
-  document.querySelector('#ranking-list')!.addEventListener('click', event => {
+  document.querySelector('main')!.addEventListener('click', event => {
     const button = (event.target as HTMLElement).closest<HTMLElement>('[data-details]');
     if (!button) return;
     const movie = movies.find(item => item.id === Number(button.dataset.details));

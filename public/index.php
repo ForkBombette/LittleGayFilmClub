@@ -29,6 +29,8 @@ $stmt->execute(['election_id' => $election['id']]);
 $movies = array_map([Movies::class, 'publicView'], $stmt->fetchAll());
 usort($movies, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']));
 
+$browseLists = Movies::browseLists($pdo, (int) $election['id']);
+
 $currentBallotsSql = <<<'SQL'
 SELECT br.user_id, br.id AS revision_id, brc.movie_id, brc.rank
 FROM ballot_revisions br
@@ -62,6 +64,7 @@ $bootstrap = [
     'election' => ['id' => (int) $election['id'], 'name' => $election['name']],
     'users' => $users,
     'movies' => $movies,
+    'browseMovies' => array_merge($browseLists['ineligible'], $browseLists['watched']),
     'committedBallots' => $committedBallots,
 ];
 ?>
@@ -110,6 +113,32 @@ $bootstrap = [
         </ol>
         <button id="submit-ballot" type="button">Submit ballot</button>
         <p id="message" role="status"></p>
+        <div class="film-library" aria-label="More films">
+            <?php foreach (['ineligible' => 'Not in this election', 'watched' => 'Watched films'] as $key => $label): ?>
+            <details class="film-shelf">
+                <summary><?= htmlspecialchars($label) ?> <span>(<?= count($browseLists[$key]) ?>)</span></summary>
+                <p><?= $key === 'ineligible' ? 'These nominations are outside this election’s frozen list. Browse their details here; they cannot be ranked in this vote.' : 'Previously watched films, with their details kept for revisiting.' ?></p>
+                <?php if (!$browseLists[$key]): ?>
+                    <p class="shelf-empty"><?= $key === 'ineligible' ? 'No films waiting outside this election.' : 'No watched films yet.' ?></p>
+                <?php else: ?>
+                <ul class="browse-movies">
+                    <?php foreach ($browseLists[$key] as $movie): ?>
+                    <li>
+                        <div class="movie-art" aria-hidden="true">
+                            <?php if ($movie['image_url']): ?><img src="<?= htmlspecialchars($movie['image_url'], ENT_QUOTES) ?>" alt="" draggable="false" loading="lazy" referrerpolicy="no-referrer"><?php else: ?><span><?= $movie['is_mystery'] ? '?' : '▶' ?></span><?php endif; ?>
+                        </div>
+                        <div class="movie-card-copy">
+                            <strong><?= htmlspecialchars($movie['title']) ?></strong>
+                            <small><?= $movie['is_mystery'] ? 'Mystery film · judge it by the pitch' : ($movie['release_year'] ?? 'Year not added') ?></small>
+                            <button type="button" class="movie-details-button" data-details="<?= $movie['id'] ?>" aria-haspopup="dialog">Details<span class="sr-only">: <?= htmlspecialchars($movie['title']) ?></span></button>
+                        </div>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php endif; ?>
+            </details>
+            <?php endforeach; ?>
+        </div>
     </section>
 
     <section>

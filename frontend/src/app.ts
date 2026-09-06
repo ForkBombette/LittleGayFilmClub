@@ -7,6 +7,7 @@ type Bootstrap = {
   election: { id: number; name: string };
   users: Array<{ id: number; display_name: string }>;
   movies: Movie[];
+  browseMovies: Movie[];
   committedBallots: Record<string, number[]>;
 };
 
@@ -15,7 +16,7 @@ declare global {
 }
 
 const data = window.LGFC_BOOTSTRAP;
-setupMovieDetails(data.movies);
+setupMovieDetails([...data.movies, ...data.browseMovies]);
 const list = document.querySelector<HTMLOListElement>('#ranking-list')!;
 const userSelect = document.querySelector<HTMLSelectElement>('#user-select')!;
 const submitButton = document.querySelector<HTMLButtonElement>('#submit-ballot')!;

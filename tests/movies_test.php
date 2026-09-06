@@ -46,3 +46,22 @@ $old->exec('CREATE TABLE users (id INTEGER PRIMARY KEY); CREATE TABLE movies (id
 MovieSchema::migrate($old);
 MovieSchema::migrate($old);
 check($old->query('SELECT title FROM movies')->fetchColumn() === 'Kept', 'upgrade is repeatable and preserves existing movies');
+
+// Browse lists keep the ballot snapshot authoritative and filter every mystery.
+$pool = new PDO('sqlite::memory:');
+$pool->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pool->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+$pool->exec(file_get_contents(__DIR__ . '/../db/schema.sql'));
+$pool->exec(file_get_contents(__DIR__ . '/../db/seed.sql'));
+check(Movies::browseLists($pool, 1) === ['ineligible' => [], 'watched' => []], 'browse lists handle empty pools');
+$waiting = Movies::nominate($pool, 1, ['title' => 'Secret waiting title', 'mystery' => '1', 'alias' => 'Zebra surprise', 'pitch' => 'Waiting pitch']);
+$watched = Movies::nominate($pool, 1, ['title' => 'Secret watched title', 'mystery' => '1', 'alias' => 'Archive surprise', 'pitch' => 'Watched pitch']);
+$normal = Movies::nominate($pool, 1, ['title' => 'Another nomination']);
+$removed = Movies::nominate($pool, 1, ['title' => 'Removed film']);
+$pool->exec("UPDATE movies SET status = 'watched' WHERE id IN (1, {$watched}); UPDATE movies SET status = 'removed' WHERE id = {$removed}");
+$lists = Movies::browseLists($pool, 1);
+check(array_column($lists['ineligible'], 'id') === [$normal, $waiting], 'waiting films sorted by public title');
+check(array_column($lists['watched'], 'id') === [$watched], 'watched shelf excludes current snapshot members');
+check(!str_contains(json_encode($lists), 'Secret') && !str_contains(json_encode($lists), 'Removed film'), 'browse payload omits secrets and removed films');
+check($lists['watched'][0]['nomination_pitch'] === 'Watched pitch' && $lists['watched'][0]['is_mystery'], 'watched mystery retains pitch without revealing');
+check((int) $pool->query('SELECT COUNT(*) FROM election_movies WHERE election_id = 1')->fetchColumn() === 6, 'browsing preserves all ballot candidates');

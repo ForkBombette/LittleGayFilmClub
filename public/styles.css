@@ -59,3 +59,11 @@ main { max-width: 1250px; }
 .nomination-form input:not([type="checkbox"]), .nomination-form textarea { width: 100%; box-sizing: border-box; font: inherit; padding: .5rem; }
 .pool-movie { border-top: 1px solid #ddd; padding: 1rem 0; }
 .pool-movie p { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.film-library { margin-top: 1.5rem; }
+.film-shelf { border-top: 1px solid #ddd; padding: .8rem 0; }
+.film-shelf summary { cursor: pointer; font-weight: 600; padding: .3rem 0; }
+.film-shelf summary:focus-visible { outline: 3px solid #375eaa; outline-offset: 3px; }
+.film-shelf summary span, .shelf-empty { color: #555; }
+.browse-movies { list-style: none; padding: 0; }
+.browse-movies li { display: flex; align-items: center; gap: .7rem; padding: .7rem 0; border-bottom: 1px solid #eee; }

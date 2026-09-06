@@ -23,6 +23,24 @@ final class Movies
         ];
     }
 
+    /** Browse-only films never alter the frozen ballot candidate list. */
+    public static function browseLists(PDO $pdo, int $electionId): array
+    {
+        $stmt = $pdo->prepare("SELECT m.* FROM movies m
+            WHERE m.status IN ('active', 'watched') AND NOT EXISTS (
+                SELECT 1 FROM election_movies em WHERE em.movie_id = m.id AND em.election_id = ?
+            )");
+        $stmt->execute([$electionId]);
+        $lists = ['ineligible' => [], 'watched' => []];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $movie) {
+            $lists[$movie['status'] === 'watched' ? 'watched' : 'ineligible'][] = self::publicView($movie);
+        }
+        foreach ($lists as &$list) {
+            usort($list, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']) ?: $a['id'] <=> $b['id']);
+        }
+        return $lists;
+    }
+
     public static function safeImage(?string $url): ?string
     {
         if (!$url) return null;
