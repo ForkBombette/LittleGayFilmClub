@@ -1,9 +1,12 @@
+import { setupMovieDetails, type Movie } from './movie-details.js';
 import { calculateRcv } from './rcv.js';
+import { previewBallots, renderRounds } from './preview.js';
+import { createRoundChart } from './round-chart.js';
 
 type Bootstrap = {
   election: { id: number; name: string };
   users: Array<{ id: number; display_name: string }>;
-  movies: Array<{ id: number; title: string; release_year: number | null }>;
+  movies: Movie[];
   committedBallots: Record<string, number[]>;
 };
 
@@ -12,11 +15,15 @@ declare global {
 }
 
 const data = window.LGFC_BOOTSTRAP;
+setupMovieDetails(data.movies);
 const list = document.querySelector<HTMLOListElement>('#ranking-list')!;
 const userSelect = document.querySelector<HTMLSelectElement>('#user-select')!;
 const submitButton = document.querySelector<HTMLButtonElement>('#submit-ballot')!;
 const speculative = document.querySelector<HTMLDivElement>('#speculative-result')!;
 const message = document.querySelector<HTMLParagraphElement>('#message')!;
+const chartContainer = document.createElement('div');
+speculative.before(chartContainer);
+const chart = createRoundChart(chartContainer, data.movies);
 
 let dragging: HTMLElement | null = null;
 
@@ -39,38 +46,22 @@ function setRanking(ranking: number[]): void {
 function renderSpeculative(): void {
   const selectedUser = Number(userSelect.value);
   if (!selectedUser) {
+    chart.reset();
     speculative.textContent = 'Choose a voter to start meddling with democracy.';
     return;
   }
 
-  const ballots = Object.entries(data.committedBallots)
-    .filter(([userId]) => Number(userId) !== selectedUser)
-    .map(([, ballot]) => ballot);
-  ballots.push(currentRanking());
-
-  const candidates = data.movies.map(movie => movie.id);
-  const result = calculateRcv(ballots, candidates);
-  const winner = data.movies.find(movie => movie.id === result.winner);
-
-  speculative.innerHTML = '';
-  const p = document.createElement('p');
-  p.textContent = winner ? `With this draft: ${winner.title} wins.` : 'No winner.';
-  speculative.appendChild(p);
-
-  result.rounds.forEach((round, index) => {
-    const line = document.createElement('div');
-    const counts = Object.entries(round.counts)
-      .map(([id, count]) => `${data.movies.find(m => m.id === Number(id))?.title ?? id}: ${count}`)
-      .join(' · ');
-    line.textContent = `Round ${index + 1}: ${counts}${round.eliminated ? ` — eliminate ${data.movies.find(m => m.id === round.eliminated)?.title}` : ''}`;
-    speculative.appendChild(line);
-  });
+  const ballots = previewBallots(data.committedBallots, selectedUser, currentRanking());
+  const result = calculateRcv(ballots, data.movies.map(movie => Number(movie.id)));
+  chart.update(result);
+  renderRounds(speculative, result, data.movies);
 }
 
 userSelect.addEventListener('change', () => {
+  chart.reset();
   const selectedUser = Number(userSelect.value);
   const committed = data.committedBallots[String(selectedUser)];
-  if (committed) setRanking(committed);
+  setRanking(committed ?? data.movies.map(movie => Number(movie.id)));
   renderSpeculative();
 });
 
@@ -95,7 +86,10 @@ list.addEventListener('dragover', event => {
     const box = sibling.getBoundingClientRect();
     return event.clientY <= box.top + box.height / 2;
   });
-  list.insertBefore(dragging, next ?? null);
+  if (dragging.nextElementSibling !== (next ?? null)) {
+    list.insertBefore(dragging, next ?? null);
+    renderSpeculative();
+  }
 });
 
 submitButton.addEventListener('click', async () => {
@@ -105,26 +99,34 @@ submitButton.addEventListener('click', async () => {
     return;
   }
 
-  message.textContent = 'Saving…';
-  const response = await fetch('submit_ballot.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      userId,
-      electionId: data.election.id,
-      ranking: currentRanking(),
-    }),
-  });
+  const submittedRanking = currentRanking();
+  submitButton.disabled = true;
+  try {
+    message.textContent = 'Saving…';
+    const response = await fetch('submit_ballot.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        electionId: data.election.id,
+        ranking: submittedRanking,
+      }),
+    });
 
-  const result = await response.json();
-  if (!response.ok) {
-    message.textContent = result.error ?? 'Ballot save failed.';
-    return;
+    const result = await response.json();
+    if (!response.ok) {
+      message.textContent = result.error ?? 'Ballot save failed.';
+      return;
+    }
+
+    data.committedBallots[String(userId)] = submittedRanking;
+    message.textContent = `Ballot revision ${result.revisionId} committed. Reload to refresh the authoritative result.`;
+    renderSpeculative();
+  } catch {
+    message.textContent = 'Ballot save failed. Please try again.';
+  } finally {
+    submitButton.disabled = false;
   }
-
-  data.committedBallots[String(userId)] = currentRanking();
-  message.textContent = `Ballot revision ${result.revisionId} committed. Reload to refresh the authoritative result.`;
-  renderSpeculative();
 });
 
 renderSpeculative();

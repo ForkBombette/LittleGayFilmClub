@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "^(?:\.|AGENTS\.md$|README\.md$)">
+    Require all denied
+</FilesMatch>

@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS movies (
     title TEXT NOT NULL,
     release_year INTEGER NULL,
     image_url TEXT NULL,
+    nominator_id INTEGER NULL REFERENCES users(id),
+    nomination_pitch TEXT NULL,
+    mystery_alias TEXT NULL,
+    revealed_at TEXT NULL,
     summary TEXT NULL,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'watched', 'removed')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

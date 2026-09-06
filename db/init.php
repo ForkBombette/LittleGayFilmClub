@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit('Command-line only.'); }
 
 $root = dirname(__DIR__);
 $varDir = $root . DIRECTORY_SEPARATOR . 'var';
