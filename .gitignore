@@ -1,0 +1,7 @@
+/var/*.sqlite
+/frontend/node_modules/
+/frontend/dist/*.js
+/frontend/dist/*.js.map
+!.gitkeep
+.DS_Store
+Thumbs.db

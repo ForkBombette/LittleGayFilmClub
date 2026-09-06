@@ -1,0 +1,12 @@
+{
+  "name": "little-gay-film-club-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node test/rcv.test.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
