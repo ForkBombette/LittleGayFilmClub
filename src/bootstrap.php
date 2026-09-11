@@ -11,3 +11,5 @@ require_once __DIR__ . '/Web.php';
 require_once __DIR__ . '/Elections.php';
 
 require_once __DIR__ . '/Watched.php';
+
+require_once __DIR__ . '/Auth.php';

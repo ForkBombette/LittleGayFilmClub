@@ -1,0 +1,45 @@
+<?php
+declare(strict_types=1);
+require_once dirname(__DIR__) . '/src/bootstrap.php';
+use LGFC\Auth;
+function check(bool $ok,string $label): void { if (!$ok) throw new RuntimeException($label); echo "PASS - {$label}\n"; }
+function rejects(callable $fn,string $label): void { try {$fn();} catch (DomainException $e) {check(true,$label);return;} throw new RuntimeException($label); }
+$pdo=new PDO('sqlite::memory:');$pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
+$pdo->exec(file_get_contents(__DIR__.'/../db/schema.sql'));$pdo->exec(file_get_contents(__DIR__.'/../db/seed.sql'));
+Auth::migrate($pdo);Auth::migrate($pdo);
+$pdo->exec("UPDATE users SET role='organiser' WHERE id=1");
+rejects(fn()=>Auth::issue($pdo,2,3),'members cannot issue login links');
+rejects(fn()=>Auth::revoke($pdo,2,1),'members cannot revoke organiser sessions');
+$link=Auth::issue($pdo,1,2);
+check(strlen($link)===64,'login token has 256 bits of randomness');
+check($pdo->query('SELECT token_hash FROM login_links')->fetchColumn()===hash('sha256',$link),'only hashed link stored');
+$session=Auth::exchange($pdo,$link);
+check(Auth::user($pdo,$session)['id']===2,'link authenticates intended member');
+check($pdo->query('SELECT token_hash FROM auth_sessions')->fetchColumn()===hash('sha256',$session),'only hashed device credential stored');
+rejects(fn()=>Auth::exchange($pdo,$link),'used link cannot be replayed');
+check(Auth::user($pdo,'bad')===null,'malformed cookie cannot authenticate');
+$link=Auth::issue($pdo,1,2);$pdo->exec('UPDATE login_links SET expires_at=0');
+rejects(fn()=>Auth::exchange($pdo,$link),'expired link rejected');
+$old=Auth::issue($pdo,1,2);$replacement=Auth::issue($pdo,1,2);
+rejects(fn()=>Auth::exchange($pdo,$old),'replacement invalidates previous unused link');
+$second=Auth::exchange($pdo,$replacement);
+Auth::logout($pdo,$session);
+check(Auth::user($pdo,$session)===null && Auth::user($pdo,$second)!==null,'logout revokes only the current device');
+$pending=Auth::issue($pdo,1,2);Auth::revoke($pdo,1,2);
+check(Auth::user($pdo,$second)===null,'organiser revocation signs out remembered devices');
+rejects(fn()=>Auth::exchange($pdo,$pending),'revocation also invalidates unused link');
+$session=Auth::exchange($pdo,Auth::issue($pdo,1,2));
+$pdo->exec('UPDATE auth_sessions SET expires_at=0');
+check(Auth::user($pdo,$session)===null,'expired device cannot authenticate');
+$session=Auth::exchange($pdo,Auth::issue($pdo,1,2));$pending=Auth::issue($pdo,1,2);
+$pdo->exec('UPDATE users SET is_active=0 WHERE id=2');
+check(Auth::user($pdo,$session)===null,'inactive users lose access immediately');
+rejects(fn()=>Auth::exchange($pdo,$pending),'inactive user cannot redeem a link');
+$admin=Auth::exchange($pdo,Auth::issue($pdo,1,1));$pdo->exec("UPDATE users SET role='member' WHERE id=1");
+check(Auth::user($pdo,$admin)['role']==='member','permissions reloaded on each request');
+rejects(fn()=>Auth::issue($pdo,1,3),'demoted organiser loses management access');
+$_SERVER['HTTPS']='off';$_SERVER['REMOTE_ADDR']='198.51.100.2';$_SERVER['HTTP_X_FORWARDED_PROTO']='https';
+check(!Auth::transportAllowed(),'remote HTTP and spoofed proxy headers cannot bypass HTTPS');
+$_SERVER['HTTPS']='on';check(Auth::transportAllowed(),'direct HTTPS accepted');
+$oldDb=new PDO('sqlite::memory:');$oldDb->exec("CREATE TABLE users(id INTEGER PRIMARY KEY, display_name TEXT,is_active INTEGER); INSERT INTO users VALUES(1,'Member',1)");Auth::migrate($oldDb);Auth::migrate($oldDb);
+check($oldDb->query('SELECT role FROM users')->fetchColumn()==='member','upgrade preserves users with least-privilege default');

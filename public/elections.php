@@ -2,13 +2,17 @@
 declare(strict_types=1);
 require_once dirname(__DIR__) . '/src/bootstrap.php';
 use LGFC\Database;
+use LGFC\Auth;
 use LGFC\Elections;
 use LGFC\Movies;
 use LGFC\Web;
 Web::start();
 $pdo = Database::connect();
+$viewer = Auth::requireUser($pdo);
+$isOrganiser = $viewer['role'] === 'organiser';
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Auth::guardOrganiser($pdo,$viewer);
     Web::checkCsrf();
     try {
         if (($_POST['action'] ?? '') === 'open') {
@@ -33,8 +37,9 @@ usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['t
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Elections · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>
 <body><main>
-<header><h1>Election controls</h1><nav><a href="index.php">Voting and results</a> · <a href="movies.php">Nominations</a> · <a href="watched.php">Record watched films</a></nav><p>Development controls are available to everyone for now. Login and organiser permissions are still to come.</p></header>
+<header><?php Auth::accountBar($viewer); ?><h1>Election controls</h1><nav><a href="index.php">Voting and results</a> · <a href="movies.php">Nominations</a> · <a href="watched.php">Watched films</a></nav><p>Organisers open and close elections. Members can inspect all election results.</p></header>
 <?php if ($error): ?><section><p role="alert"><?= Web::escape($error) ?></p></section><?php endif; ?>
+<?php if ($isOrganiser): ?>
 <?php if ($open): ?>
 <?php foreach ($open as $election): ?>
 <section><h2><?= Web::escape($election['name']) ?></h2><p>Voting is open. Submitted ballots: <?= count(Elections::ballots($pdo, (int) $election['id'])) ?>.</p>
@@ -51,6 +56,7 @@ usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['t
 <details><summary>Films in the current pool (<?= count($pool) ?>)</summary><ul><?php foreach ($pool as $movie): ?><li><?= Web::escape($movie['title']) ?><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></li><?php endforeach; ?></ul></details>
 <?php else: ?><p>No active films yet. <a href="movies.php">Nominate a film</a> before opening an election.</p><?php endif; ?>
 </section>
+<?php endif; ?>
 <?php endif; ?>
 <section><h2>All elections</h2><?php if (!$elections): ?><p>No elections yet.</p><?php endif; ?>
 <ul class="election-history"><?php foreach ($elections as $election): ?><li><a href="index.php?electionId=<?= (int) $election['id'] ?>"><?= Web::escape($election['name']) ?></a> · <?= $election['status'] === 'open' ? 'Voting open' : 'Closed — final result' ?><?php if ($election['closed_at']): ?> · <?= Web::escape($election['closed_at']) ?> UTC<?php endif; ?></li><?php endforeach; ?></ul></section>

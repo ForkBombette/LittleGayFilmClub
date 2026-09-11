@@ -19,7 +19,7 @@ cinema (ie. 1980s sword-and-sorcery movies) formed the inspiration.
 - mirrored speculative RCV engine in TypeScript
 - ballot revisions are retained historically
 - election eligibility is snapshotted when an election opens
-- intentionally simple development identity selector; no real auth yet
+- personal-link authentication with member and organiser permissions
 
 ## Requirements
 
@@ -46,7 +46,7 @@ cinema (ie. 1980s sword-and-sorcery movies) formed the inspiration.
    cd ..
    ```
 
-5. Browse to the `public` directory through WAMP, e.g. `http://localhost/little-gay-film-club/public/`.
+5. Follow Authentication and permissions below to configure HTTPS (or explicit loopback development access), create the first organiser link, and sign in through the `public` directory.
 
 The SQLite database is created at `var/lgfc.sqlite` and is ignored by Git.
 
@@ -69,7 +69,7 @@ Both engines use the same conceptual fixtures in `tests/fixtures/rcv_cases.json`
 
 ## Current deliberately ugly workflow
 
-Choose a development user, drag films into preference order, and submit. Each submission creates a new ballot revision rather than overwriting the old one. The results page calculates the authoritative RCV result from the latest submitted ballot for each user.
+Sign in with your personal link, drag films into preference order, and submit. Each submission creates a new ballot revision rather than overwriting the old one. The results page calculates the authoritative RCV result from the latest submitted ballot for each user.
 
 The browser also calculates a speculative result while you drag, using the committed ballots as loaded when the page opened plus your current draft. That is the first stepping stone toward the live animated election graph.
 
@@ -77,18 +77,16 @@ The browser also calculates a speculative result while you drag, using the commi
 
 - improve ballot UI and movie cards/posters
 - result graph and animation
-- election open/close UI and eligibility freezing controls
 - add movies and external metadata search
 - majority removal votes
-- auth via unique URL -> persistent cookie
 - admin/user management
 - historical replay of ballot revisions
 
 ## Live round preview
 
-The framework-free preview sits beside the ballot (below on narrow screens) and updates during dragging. It uses the page-load snapshot, replacing the selected user's ballot, never adding a second vote. Other users' submissions require an explicit reload. A successful local submission updates only that user's snapshot entry using the ranking actually sent. PHP remains authoritative; neither RCV engine's voting rules changed. Transfer counts come from consecutive engine round deltas; final survivors are labelled without inventing a tally.
+The framework-free preview sits beside the ballot (below on narrow screens) and updates during dragging. It uses the page-load snapshot, replacing the signed-in user's ballot, never adding a second vote. Other users' submissions require an explicit reload. A successful local submission updates only that user's snapshot entry using the ranking actually sent. PHP remains authoritative; neither RCV engine's voting rules changed. Transfer counts come from consecutive engine round deltas; final survivors are labelled without inventing a tally.
 
-Exercise: choose a voter, drag a film across another and watch totals before releasing. Submit, switch voters, and reload to compare with the authoritative result. In a second tab submit another user's ballot: the first tab must stay stable until reloaded. Test a narrow window as well.
+Exercise: sign in, drag a film across another and watch totals before releasing. Submit and reload to compare with the authoritative result. Use a separate browser profile for a second member: their submission must not change the first browser's snapshot until reloaded. Test a narrow window as well.
 
 ## Future non-priority features
 
@@ -97,7 +95,7 @@ Exercise: choose a voter, drag a film across another and watch totals before rel
 
 ## Animated round chart
 
-The draft preview now includes a bar chart above the retained round tables. Use Previous round / Next round or Replay rounds (which becomes Pause replay). Candidate rows and the vote scale stay fixed across rounds. Reordering immediately updates the selected round and pauses replay; changing voters starts at round one. Reduced-motion preferences disable bar transitions. The engine and snapshot rules are unchanged.
+The draft preview now includes a bar chart above the retained round tables. Use Previous round / Next round or Replay rounds (which becomes Pause replay). Candidate rows and the vote scale stay fixed across rounds. Reordering immediately updates the selected round and pauses replay. Reduced-motion preferences disable bar transitions. The engine and snapshot rules are unchanged.
 
 ## Movie cards and mystery nominations
 
@@ -105,11 +103,11 @@ Cards show posters when available and neutral artwork otherwise. Details opens a
 
 Run `php db/migrate.php` once when upgrading an existing database; this adds fields without replacing movies, elections or ballot revisions. Fresh `db/init.php` databases include the fields (init still resets the database). Test with `php tests/movies_test.php` and `npm test` in frontend.
 
-Use **Nominate or reveal a film** to choose a development nominator and enter the real film details, optional pitch, and mystery alias. Mysteries require a pitch. New nominations belong to the ongoing pool, not the current election's frozen candidate list. They become eligible when a future election snapshots that pool.
+Use **Nominate or reveal a film** while signed in to enter the real film details, optional pitch, and mystery alias. Mysteries require a pitch. New nominations belong to the ongoing pool, not the current election's frozen candidate list. They become eligible when a future election snapshots that pool.
 
 A hidden mystery exposes only its alias, pitch and neutral artwork; PHP filters its title, year, synopsis and poster before rendering cards, bootstrap data and authoritative results. Sort by public title, never the hidden title. Revealing is a deliberate, confirmed action by the nominator on the nomination page; it works after an election closes and never runs automatically. Existing tabs must reload to see a reveal. The reveal is permanent and keeps the same movie ID and ballots.
 
-The current user selector is development identity, not authentication: users can impersonate each other until login is implemented. Reveal ownership is checked on the server against that selected user. Keep this prototype private until authentication exists. Apache must honor the supplied .htaccess rules, which block private database/source directories; other servers need equivalent restrictions. Metadata is never fetched for hidden films. Pitches and aliases are intentionally public: keep spoilers out of them.
+Reveal ownership is checked on the server against the signed-in member, including for organisers. Apache must honor the supplied .htaccess rules, which block private database/source directories; other servers need equivalent restrictions. Metadata is never fetched for hidden films. Pitches and aliases are intentionally public: keep spoilers out of them.
 
 ## Browsing beyond the ballot
 
@@ -123,8 +121,45 @@ Closing stores the authoritative PHP result (winner and rounds) plus the exact l
 
 Closed results are read-only at index.php?electionId=ID and remain accessible after a new election opens. With no open election, the default page shows the latest closed election; with no elections at all it shows the browsable pool and links to nominate/open. Mystery identities remain hidden until explicitly revealed; result records contain IDs, and display names use the normal public movie filter. Closing does not mark the winner watched.
 
-Upgrade with php db/migrate.php (no reset). It creates election_results and backfills any legacy closed elections from their retained latest ballots once. Fresh databases include the table. Run php tests/elections_test.php, php tests/movies_test.php, php tests/rcv_test.php and npm test in frontend. Development election controls currently have CSRF protection but no organiser authentication; login/permissions remain the next core security work.
+Upgrade with php db/migrate.php (no reset). It creates election_results and backfills any legacy closed elections from their retained latest ballots once. Fresh databases include the table. Run php tests/elections_test.php, php tests/movies_test.php, php tests/rcv_test.php and npm test in frontend. Election writes require an authenticated organiser and CSRF protection; all members can read history.
 
 ## Watched records
 
-Record watched films supports existing catalogue entries and adding a past film directly as watched, without any election or ballot. A watched date is optional (unknown stays unknown); a related election is optional and may have a different winner or candidate list. A closed result links to this form with its winner preselected, which can be changed. One record per movie can be corrected without duplicating it. Recording is atomic and sets status to watched, excluding the film from future election snapshots while preserving existing snapshots, revisions and stored results. Mystery reveal is separate, including after watching. Development recorder identity still uses a selector. Watched history keeps aliases private and links to related elections. Run php db/migrate.php to add movie_watches without changing existing data; legacy watched films remain visible with unknown dates. Tests: php tests/watched_test.php.
+Record watched films supports existing catalogue entries and adding a past film directly as watched, without any election or ballot. A watched date is optional (unknown stays unknown); a related election is optional and may have a different winner or candidate list. A closed result links to this form with its winner preselected, which can be changed. One record per movie can be corrected without duplicating it. Recording is atomic and sets status to watched, excluding the film from future election snapshots while preserving existing snapshots, revisions and stored results. Mystery reveal is separate, including after watching. Only organisers can record or correct watched films; the server records the signed-in organiser as the actor. Watched history keeps aliases private and links to related elections. Run php db/migrate.php to add movie_watches without changing existing data; legacy watched films remain visible with unknown dates. Tests: php tests/watched_test.php.
+
+## Authentication and permissions
+
+Personal links are single-use and expire after seven days. Redeeming one remembers that device for 90 days. Link and device tokens are random secrets stored only as SHA-256 hashes in SQLite. The link secret is a URL fragment: the login page removes it from the address bar and submits it only when Sign in is pressed. Opening a link alone does not consume it.
+
+| Action | Member | Organiser |
+| --- | --- | --- |
+| Browse films, results and watched history | Yes | Yes |
+| Submit/revise own ballot and nominate | Yes | Yes |
+| Reveal own mystery nomination | Yes | Yes |
+| Reveal someone else's mystery | No | No |
+| Open/close elections and record/correct watched films | No | Yes |
+| Generate personal links and revoke devices/links | No | Yes |
+
+Each request reloads active status and role from the database. Submitted user IDs never select the voter, nominator or watch recorder. State-changing requests require CSRF protection. Account provides sign-out for the current device; organiser revocation removes all devices and unused links for that member, preserving their ballots. Creating a new link replaces unused links but keeps existing devices signed in.
+
+### Install or upgrade
+
+1. Run `php db/migrate.php` to add authentication tables and roles without resetting existing data. Existing members default to `member`.
+2. Serve over HTTPS. Cookies use HttpOnly and SameSite=Strict, with Secure on HTTPS. For local Apache/hosts-file development only, create the empty ignored file `var/allow-local-http`; it permits HTTP only when PHP sees the direct client as `127.0.0.1` or `::1`. Forwarded headers cannot enable this exception. Do not deploy the marker.
+3. Choose an existing member as initial organiser and run the command below, substituting their exact display name and the site's public-directory URL. Open the generated private HTML file locally and follow its link. The same CLI command supports organiser recovery; it is never accessible through HTTP.
+
+```text
+php db/create-login.php --user "MEMBER NAME" --base-url "https://YOUR_HOST/public" --output "var/organiser-login.html"
+```
+
+4. Open Account → Member login links to create links for other members and share them privately. Each extra device needs a fresh link. Delete the private bootstrap HTML once used; it is ignored by Git and its directory is denied by Apache.
+
+Apache must honor the supplied `.htaccess` rules; another server needs equivalent protection for private directories. Creating/deactivating users and editing roles through a web console remain future work. No external identity provider, email delivery or API is involved.
+
+Validation: `php tests/auth_test.php`, the existing elections/watched/movies/RCV PHP tests, and `npm test` in `frontend`. HTTP checks should use an isolated copy/database and separate cookie sessions: anonymous requests redirect (ballot API returns 401), members receive 403 for organiser writes and management, missing CSRF gives 403, forged actor IDs cannot impersonate, one-time links cannot be replayed, and revocation invalidates an existing login. Confirm that signing in restores only that member's current ballot and preserves the draft snapshot rules.
+
+### If you sign yourself out
+
+Signing in consumes the personal link and creates a separate remembered-device session. Signing out removes that device session; revoking access removes all the member's device sessions and unused links. Neither makes an old link reusable. A sole organiser can recover using the CLI command above; keep the same existing user name to retain their ballots and nominations.
+
+`--base-url` normally ends in `/public`, not `/public/login.php`. The command also accepts the sign-in page address and normalizes it. After running it, open or reload the newly written local HTML file and follow the new link; an already-open copy may still contain the previous link. The terminal prints the output file's full path. Running the command replaces earlier unused links, but leaves remembered devices signed in.

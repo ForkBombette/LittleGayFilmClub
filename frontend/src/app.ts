@@ -5,7 +5,8 @@ import { createRoundChart } from './round-chart.js';
 
 type Bootstrap = {
   election: { id: number; name: string; status: 'open' | 'closed' } | null;
-  users: Array<{ id: number; display_name: string }>;
+  viewer: { id: number; display_name: string };
+  csrf: string;
   movies: Movie[];
   browseMovies: Movie[];
   committedBallots: Record<string, number[]>;
@@ -21,7 +22,7 @@ function setupVoting(): void {
   const election = data.election;
   if (!election || election.status !== 'open') return;
   const list = document.querySelector<HTMLOListElement>('#ranking-list')!;
-  const userSelect = document.querySelector<HTMLSelectElement>('#user-select')!;
+
   const submitButton = document.querySelector<HTMLButtonElement>('#submit-ballot')!;
   const speculative = document.querySelector<HTMLDivElement>('#speculative-result')!;
   const message = document.querySelector<HTMLParagraphElement>('#message')!;
@@ -50,7 +51,7 @@ function setupVoting(): void {
 
   function renderSpeculative(): void {
     if (votingClosed) return;
-    const selectedUser = Number(userSelect.value);
+    const selectedUser = data.viewer.id;
     if (!selectedUser) {
       chart.reset();
       speculative.textContent = 'Choose a voter to start meddling with democracy.';
@@ -62,14 +63,6 @@ function setupVoting(): void {
     chart.update(result);
     renderRounds(speculative, result, data.movies);
   }
-
-  userSelect.addEventListener('change', () => {
-    chart.reset();
-    const selectedUser = Number(userSelect.value);
-    const committed = data.committedBallots[String(selectedUser)];
-    setRanking(committed ?? data.movies.map(movie => Number(movie.id)));
-    renderSpeculative();
-  });
 
   list.addEventListener('dragstart', event => {
     if (votingClosed) { event.preventDefault(); return; }
@@ -101,11 +94,7 @@ function setupVoting(): void {
 
   submitButton.addEventListener('click', async () => {
     if (votingClosed) return;
-    const userId = Number(userSelect.value);
-    if (!userId) {
-      message.textContent = 'Choose a voter first.';
-      return;
-    }
+    const userId = data.viewer.id;
 
     const submittedRanking = currentRanking();
     submitButton.disabled = true;
@@ -113,9 +102,8 @@ function setupVoting(): void {
       message.textContent = 'Saving…';
       const response = await fetch('submit_ballot.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': data.csrf },
         body: JSON.stringify({
-          userId,
           electionId: election.id,
           ranking: submittedRanking,
         }),
@@ -126,7 +114,6 @@ function setupVoting(): void {
         message.textContent = result.error ?? 'Ballot save failed.';
         if (result.code === 'election_closed') {
           votingClosed = true;
-          userSelect.disabled = true;
           chart.reset();
           speculative.textContent = 'Voting has closed. Reload to view the final result.';
         }
@@ -143,6 +130,7 @@ function setupVoting(): void {
     }
   });
 
+  setRanking(data.committedBallots[String(data.viewer.id)] ?? data.movies.map(movie => movie.id));
   renderSpeculative();
 }
 

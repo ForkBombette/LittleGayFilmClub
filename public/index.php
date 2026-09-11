@@ -4,13 +4,16 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/src/bootstrap.php';
 
 use LGFC\Database;
+use LGFC\Auth;
 use LGFC\Rcv;
 use LGFC\Movies;
 use LGFC\Elections;
 use LGFC\Watched;
-header('Cache-Control: no-store');
+LGFC\Web::start();
 
 $pdo = Database::connect();
+$viewer = Auth::requireUser($pdo);
+$isOrganiser = $viewer['role'] === 'organiser';
 if (isset($_GET['electionId'])) {
     $id = filter_var($_GET['electionId'], FILTER_VALIDATE_INT);
     $stmt = $pdo->prepare('SELECT * FROM elections WHERE id = ?');
@@ -23,7 +26,7 @@ if (isset($_GET['electionId'])) {
 $electionId = $election ? (int) $election['id'] : 0;
 $isOpen = $election && $election['status'] === 'open';
 
-$users = $pdo->query("SELECT id, display_name FROM users WHERE is_active = 1 ORDER BY display_name")->fetchAll();
+
 
 $stmt = $pdo->prepare(
     'SELECT m.*
@@ -51,7 +54,8 @@ foreach ($movies as $movie) {
 
 $bootstrap = [
     'election' => $election ? ['id' => $electionId, 'name' => $election['name'], 'status' => $election['status']] : null,
-    'users' => $users,
+    'viewer' => $viewer,
+    'csrf' => $_SESSION['csrf'],
     'movies' => $movies,
     'browseMovies' => array_merge($browseLists['ineligible'], $browseLists['watched']),
     'committedBallots' => $committedBallots,
@@ -67,9 +71,9 @@ $bootstrap = [
 </head>
 <body>
 <main>
-    <header>
+    <header><?php Auth::accountBar($viewer); ?>
         <h1>Little Gay Film Club™</h1>
-        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Record watched films</a></nav>
+        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Watched films</a></nav>
         <p><?= $election ? htmlspecialchars($election['name']) : 'Between movie nights' ?></p>
         <?php if (!$isOpen): ?><p><?= $election ? 'Voting is closed. This result is frozen.' : 'No election has opened yet. Nominate films, then open an election when ready.' ?></p><?php endif; ?>
     </header>
@@ -78,13 +82,7 @@ $bootstrap = [
     <section>
         <h2><?= $isOpen ? 'Cast a ballot' : ($election ? 'Films in this election' : 'Film pool') ?></h2>
         <?php if ($isOpen): ?>
-        <label for="user-select">Vote as</label>
-        <select id="user-select">
-            <option value="">Choose a voter…</option>
-            <?php foreach ($users as $user): ?>
-                <option value="<?= (int) $user['id'] ?>"><?= htmlspecialchars($user['display_name']) ?></option>
-            <?php endforeach; ?>
-        </select>
+        <p>Your ballot, <?= htmlspecialchars($viewer['display_name']) ?>.</p>
 
         <p>Drag films into preference order. This draft is speculative until you submit it.</p>
         <?php endif; ?>
@@ -156,7 +154,7 @@ $bootstrap = [
         <h3>What we actually watched</h3>
         <?php if (!$watchedForElection): ?><p>No watched film recorded for this election yet.</p><?php endif; ?>
         <ul><?php foreach ($watchedForElection as $entry): ?><li><?= htmlspecialchars($entry['movie']['title']) ?> · <?= $entry['watched_on'] ? htmlspecialchars($entry['watched_on']) : 'Date unknown' ?></li><?php endforeach; ?></ul>
-        <p><a href="watched.php?electionId=<?= $electionId ?><?= $authoritative['winner'] !== null ? '&amp;movieId=' . (int) $authoritative['winner'] : '' ?>">Record what we actually watched</a> — choose the winner or a different film.</p><?php endif; ?>
+        <?php if ($isOrganiser): ?><p><a href="watched.php?electionId=<?= $electionId ?><?= $authoritative['winner'] !== null ? '&amp;movieId=' . (int) $authoritative['winner'] : '' ?>">Record what we actually watched</a> — choose the winner or a different film.</p><?php endif; ?><?php endif; ?>
         <?php foreach ($authoritative['rounds'] as $index => $round): ?>
             <article class="round">
                 <h3>Round <?= $index + 1 ?></h3>

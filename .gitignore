@@ -5,3 +5,6 @@
 !.gitkeep
 .DS_Store
 Thumbs.db
+
+/var/allow-local-http
+/var/*login*.html
