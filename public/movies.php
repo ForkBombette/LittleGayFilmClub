@@ -31,14 +31,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 $notice = $_SESSION['notice'] ?? '';
 unset($_SESSION['notice']);
-$movies = array_map([Movies::class, 'publicView'], $pdo->query("SELECT * FROM movies WHERE status = 'active'")->fetchAll());
+$movies = array_map([Movies::class, 'publicView'], $pdo->query("SELECT * FROM movies WHERE status IN ('active', 'watched')")->fetchAll());
 usort($movies, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']));
 $activeUser = in_array($userId, array_map('intval', array_column($users, 'id')), true);
 ?>
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nominations · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>
 <body><main>
-<header><h1>Film nominations</h1><a href="index.php">Back to voting</a><p>New films join the next election. An open election keeps its original list.</p></header>
+<header><h1>Film nominations</h1><a href="index.php">Back to voting</a> · <a href="watched.php">Record watched films</a><p>New films join the next election. An open election keeps its original list.</p></header>
 <section>
 <form method="get"><label for="nominator">Act as</label> <select id="nominator" name="userId"><option value="0">Choose a nominator…</option><?php foreach ($users as $user): ?><option value="<?= (int) $user['id'] ?>" <?= $userId === (int) $user['id'] ? 'selected' : '' ?>><?= Web::escape($user['display_name']) ?></option><?php endforeach; ?></select> <button>Choose</button></form>
 <?php if ($notice): ?><p role="status"><?= Web::escape($notice) ?></p><?php endif; ?>
@@ -59,7 +59,7 @@ $activeUser = in_array($userId, array_map('intval', array_column($users, 'id')),
 <button>Save nomination</button>
 </form></section>
 <?php endif; ?>
-<section><h2>Film pool</h2>
+<section><h2>Film catalogue</h2>
 <?php foreach ($movies as $movie): ?>
 <article class="pool-movie"><h3><?= Web::escape($movie['title']) ?><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></h3>
 <p><?= Web::escape($movie['nomination_pitch'] ?: 'No pitch yet.') ?></p>

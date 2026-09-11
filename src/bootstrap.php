@@ -7,3 +7,7 @@ require_once __DIR__ . '/Rcv.php';
 require_once __DIR__ . '/MovieSchema.php';
 require_once __DIR__ . '/Movies.php';
 require_once __DIR__ . '/Web.php';
+
+require_once __DIR__ . '/Elections.php';
+
+require_once __DIR__ . '/Watched.php';

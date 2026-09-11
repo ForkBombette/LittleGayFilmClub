@@ -6,15 +6,22 @@ require_once dirname(__DIR__) . '/src/bootstrap.php';
 use LGFC\Database;
 use LGFC\Rcv;
 use LGFC\Movies;
+use LGFC\Elections;
+use LGFC\Watched;
 header('Cache-Control: no-store');
 
 $pdo = Database::connect();
-$election = $pdo->query("SELECT * FROM elections WHERE status = 'open' ORDER BY id DESC LIMIT 1")->fetch();
-
-if (!$election) {
-    http_response_code(500);
-    exit('No open election.');
+if (isset($_GET['electionId'])) {
+    $id = filter_var($_GET['electionId'], FILTER_VALIDATE_INT);
+    $stmt = $pdo->prepare('SELECT * FROM elections WHERE id = ?');
+    $stmt->execute([$id ?: 0]);
+    $election = $stmt->fetch();
+    if (!$election) { http_response_code(404); exit('Election not found.'); }
+} else {
+    $election = $pdo->query("SELECT * FROM elections ORDER BY CASE WHEN status = 'open' THEN 0 ELSE 1 END, id DESC LIMIT 1")->fetch();
 }
+$electionId = $election ? (int) $election['id'] : 0;
+$isOpen = $election && $election['status'] === 'open';
 
 $users = $pdo->query("SELECT id, display_name FROM users WHERE is_active = 1 ORDER BY display_name")->fetchAll();
 
@@ -25,35 +32,17 @@ $stmt = $pdo->prepare(
      WHERE em.election_id = :election_id
      ORDER BY m.id'
 );
-$stmt->execute(['election_id' => $election['id']]);
+$stmt->execute(['election_id' => $electionId]);
 $movies = array_map([Movies::class, 'publicView'], $stmt->fetchAll());
 usort($movies, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']));
 
-$browseLists = Movies::browseLists($pdo, (int) $election['id']);
+$browseLists = Movies::browseLists($pdo, $electionId);
 
-$currentBallotsSql = <<<'SQL'
-SELECT br.user_id, br.id AS revision_id, brc.movie_id, brc.rank
-FROM ballot_revisions br
-JOIN (
-    SELECT election_id, user_id, MAX(id) AS latest_id
-    FROM ballot_revisions
-    WHERE election_id = :election_id
-    GROUP BY election_id, user_id
-) latest ON latest.latest_id = br.id
-JOIN ballot_revision_choices brc ON brc.ballot_revision_id = br.id
-ORDER BY br.user_id, brc.rank
-SQL;
-$stmt = $pdo->prepare($currentBallotsSql);
-$stmt->execute(['election_id' => $election['id']]);
-$rows = $stmt->fetchAll();
+$committedBallots = Elections::ballots($pdo, $electionId);
+$authoritative = !$election ? ['winner' => null, 'rounds' => []]
+    : ($isOpen ? Elections::currentResult($pdo, $electionId) : Elections::finalResult($pdo, $electionId));
 
-$committedBallots = [];
-foreach ($rows as $row) {
-    $committedBallots[(int) $row['user_id']][] = (int) $row['movie_id'];
-}
-
-$candidateIds = array_map(static fn (array $m): int => (int) $m['id'], $movies);
-$authoritative = Rcv::calculate(array_values($committedBallots), $candidateIds);
+$watchedForElection = array_values(array_filter(Watched::history($pdo), static fn(array $entry): bool => $entry['election_id'] === $electionId));
 
 $movieNames = [];
 foreach ($movies as $movie) {
@@ -61,7 +50,7 @@ foreach ($movies as $movie) {
 }
 
 $bootstrap = [
-    'election' => ['id' => (int) $election['id'], 'name' => $election['name']],
+    'election' => $election ? ['id' => $electionId, 'name' => $election['name'], 'status' => $election['status']] : null,
     'users' => $users,
     'movies' => $movies,
     'browseMovies' => array_merge($browseLists['ineligible'], $browseLists['watched']),
@@ -80,13 +69,15 @@ $bootstrap = [
 <main>
     <header>
         <h1>Little Gay Film Club™</h1>
-        <a href="movies.php">Nominate or reveal a film</a>
-        <p><?= htmlspecialchars($election['name']) ?></p>
+        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Record watched films</a></nav>
+        <p><?= $election ? htmlspecialchars($election['name']) : 'Between movie nights' ?></p>
+        <?php if (!$isOpen): ?><p><?= $election ? 'Voting is closed. This result is frozen.' : 'No election has opened yet. Nominate films, then open an election when ready.' ?></p><?php endif; ?>
     </header>
 
-    <div class="voting-layout">
+    <div class="<?= $isOpen ? 'voting-layout' : 'election-readonly' ?>">
     <section>
-        <h2>Cast a ballot</h2>
+        <h2><?= $isOpen ? 'Cast a ballot' : ($election ? 'Films in this election' : 'Film pool') ?></h2>
+        <?php if ($isOpen): ?>
         <label for="user-select">Vote as</label>
         <select id="user-select">
             <option value="">Choose a voter…</option>
@@ -96,10 +87,11 @@ $bootstrap = [
         </select>
 
         <p>Drag films into preference order. This draft is speculative until you submit it.</p>
+        <?php endif; ?>
         <ol id="ranking-list">
             <?php foreach ($movies as $movie): ?>
-                <li draggable="true" data-movie-id="<?= (int) $movie['id'] ?>">
-                    <span class="handle" aria-hidden="true">☰</span>
+                <li draggable="<?= $isOpen ? 'true' : 'false' ?>" data-movie-id="<?= (int) $movie['id'] ?>">
+                    <?php if ($isOpen): ?><span class="handle" aria-hidden="true">☰</span><?php endif; ?>
                     <div class="movie-art" aria-hidden="true">
                         <?php if ($movie['image_url']): ?><img src="<?= htmlspecialchars($movie['image_url'], ENT_QUOTES) ?>" alt="" draggable="false" loading="lazy" referrerpolicy="no-referrer"><?php else: ?><span><?= $movie['is_mystery'] ? '?' : '▶' ?></span><?php endif; ?>
                     </div>
@@ -111,8 +103,8 @@ $bootstrap = [
                 </li>
             <?php endforeach; ?>
         </ol>
-        <button id="submit-ballot" type="button">Submit ballot</button>
-        <p id="message" role="status"></p>
+        <?php if ($isOpen): ?><button id="submit-ballot" type="button">Submit ballot</button>
+        <p id="message" role="status"></p><?php endif; ?>
         <div class="film-library" aria-label="More films">
             <?php foreach (['ineligible' => 'Not in this election', 'watched' => 'Watched films'] as $key => $label): ?>
             <details class="film-shelf">
@@ -141,22 +133,30 @@ $bootstrap = [
         </div>
     </section>
 
+    <?php if ($isOpen): ?>
     <section>
         <h2>Draft round preview</h2>
         <p>Uses the committed ballots loaded with this page, replacing your saved vote with this draft. Reordering does not save. Reload deliberately to refresh other voters’ ballots.</p>
         <div id="speculative-result">Choose a voter to start meddling with democracy.</div>
     </section>
 
+    <?php endif; ?>
     </div>
+    <?php if ($election): ?>
     <section>
-        <h2>Committed result at page load</h2>
-        <p>This authoritative result stays unchanged until you reload, including after submitting.</p>
+        <h2><?= $isOpen ? 'Committed result at page load' : 'Final result' ?></h2>
+        <p><?= $isOpen ? 'This authoritative result stays unchanged until you reload, including after submitting.' : 'Voting closed at ' . htmlspecialchars($election['closed_at'] ?? 'an earlier date') . ' UTC. The totals below were stored when this election closed.' ?></p>
         <?php if ($authoritative['winner'] === null): ?>
-            <p>No winner yet.</p>
+            <p><?= $isOpen ? 'No winner yet.' : 'No winner — no ballots were submitted.' ?></p>
         <?php else: ?>
             <p class="winner">Winner: <strong><?= htmlspecialchars($movieNames[$authoritative['winner']] ?? 'Unknown') ?></strong></p>
         <?php endif; ?>
 
+        <?php if (!$isOpen): ?>
+        <h3>What we actually watched</h3>
+        <?php if (!$watchedForElection): ?><p>No watched film recorded for this election yet.</p><?php endif; ?>
+        <ul><?php foreach ($watchedForElection as $entry): ?><li><?= htmlspecialchars($entry['movie']['title']) ?> · <?= $entry['watched_on'] ? htmlspecialchars($entry['watched_on']) : 'Date unknown' ?></li><?php endforeach; ?></ul>
+        <p><a href="watched.php?electionId=<?= $electionId ?><?= $authoritative['winner'] !== null ? '&amp;movieId=' . (int) $authoritative['winner'] : '' ?>">Record what we actually watched</a> — choose the winner or a different film.</p><?php endif; ?>
         <?php foreach ($authoritative['rounds'] as $index => $round): ?>
             <article class="round">
                 <h3>Round <?= $index + 1 ?></h3>
@@ -171,6 +171,7 @@ $bootstrap = [
             </article>
         <?php endforeach; ?>
     </section>
+<?php endif; ?>
 </main>
 <dialog id="movie-dialog" aria-labelledby="movie-dialog-title">
     <button type="button" id="close-movie-dialog" aria-label="Close film details">Close ×</button>

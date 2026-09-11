@@ -67,3 +67,6 @@ main { max-width: 1250px; }
 .film-shelf summary span, .shelf-empty { color: #555; }
 .browse-movies { list-style: none; padding: 0; }
 .browse-movies li { display: flex; align-items: center; gap: .7rem; padding: .7rem 0; border-bottom: 1px solid #eee; }
+
+.election-readonly #ranking-list li { cursor: default; }
+.election-history li { margin: .7rem 0; }

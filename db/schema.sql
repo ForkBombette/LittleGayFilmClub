@@ -58,3 +58,18 @@ CREATE TABLE IF NOT EXISTS ballot_revision_choices (
 
 CREATE INDEX IF NOT EXISTS idx_ballot_revision_lookup
     ON ballot_revisions (election_id, user_id, id DESC);
+
+CREATE TABLE IF NOT EXISTS election_results (
+    election_id INTEGER PRIMARY KEY REFERENCES elections(id),
+    result_json TEXT NOT NULL,
+    ballot_revision_ids_json TEXT NOT NULL,
+    frozen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS movie_watches (
+    movie_id INTEGER PRIMARY KEY REFERENCES movies(id),
+    watched_on TEXT NULL,
+    election_id INTEGER NULL REFERENCES elections(id),
+    recorded_by INTEGER NOT NULL REFERENCES users(id),
+    recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
