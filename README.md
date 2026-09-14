@@ -78,7 +78,7 @@ The browser also calculates a speculative result while you drag, using the commi
 - improve ballot UI and movie cards/posters
 - result graph and animation
 - add movies and external metadata search
-- majority removal votes
+- majority removal votes (implemented)
 - admin/user management
 - historical replay of ballot revisions
 
@@ -163,3 +163,23 @@ Validation: `php tests/auth_test.php`, the existing elections/watched/movies/RCV
 Signing in consumes the personal link and creates a separate remembered-device session. Signing out removes that device session; revoking access removes all the member's device sessions and unused links. Neither makes an old link reusable. A sole organiser can recover using the CLI command above; keep the same existing user name to retain their ballots and nominations.
 
 `--base-url` normally ends in `/public`, not `/public/login.php`. The command also accepts the sign-in page address and normalizes it. After running it, open or reload the newly written local HTML file and follow the new link; an already-open copy may still contain the previous link. The terminal prints the output file's full path. Running the command replaces earlier unused links, but leaves remembered devices signed in.
+
+## Nomination management
+
+The nominations page now has a Your nominations list and owner-only Edit nomination links. An active nominator can correct title, release year, poster, synopsis, pitch and an existing mystery alias, including after watching or an election closes. Corrections update the shared movie metadata shown in history; nominate a new film rather than replacing an existing film's identity.
+
+Private editor records are available only to their nominator, never to other members or organisers. Public catalogue data still uses the mystery filter. Saving cannot change ownership, status, eligibility, ballots or reveal state. Public films cannot be hidden retroactively, and revealed mysteries cannot be re-hidden. Reveal remains the separate confirmed action.
+
+An editor carries a fingerprint of the movie it loaded; saving checks it inside a serialized write transaction. A newer edit, reveal or watched-status change rejects a stale save. Validation failures retain typed text. Reload a stale editor after copying any unsaved text you want to keep.
+
+No database migration is required. Test with `php tests/nominations_test.php` and `php tests/movies_test.php`. Exercise by signing in, choosing Nominations → Your nominations, editing a pitch and checking it in Details. Try opening the editor twice and saving in both; the second save must report a stale edit. Other users must receive 403 if they request that editor directly. Majority removal votes are described below.
+
+## Majority removal votes
+
+Open Removal votes from voting or nominations. Any active member can propose removal with a public reason; this counts as their support. Each active member has one changeable Support removal / Keep film response. The request passes immediately when support reaches floor(active members / 2) + 1, counting all active members rather than only respondents. Pending support and threshold use current active membership, evaluated on each response. Completed decisions retain their passing totals and cannot be reversed by changing a response. Organisers have no extra voting weight.
+
+Passing marks the movie removed and records exclusions only for currently open elections containing it. Original election_movies rows and every ballot revision remain untouched. Both RCV engines already skip candidates absent from their eligible set, so existing preferences transfer naturally. New elections exclude removed films. Closed elections and stored results remain unchanged, even if the same film is removed later. A watched film still on the open ballot can be removed by vote. No reveal is triggered, and request lists use public mystery metadata. Reasons are public and must not contain spoilers. Removing every candidate leaves no winner and disables ballot submission.
+
+A stale ballot POST receives HTTP 409 / candidates_changed with current eligible IDs and creates no revision. The browser removes those films from its current draft, retains the relative order, rebuilds the round preview, and asks for review and a second submission. It does not fetch newer votes or replace the committed baseline. Another intervening removal causes another review. Closure still rejects submissions with election_closed. The page-load committed-result section remains explicitly a snapshot.
+
+Upgrade with php db/migrate.php; this adds removal_requests, removal_votes and election_removals without changing existing data. Fresh schema includes them. Removal, election lifecycle and ballot writes share BEGIN IMMEDIATE to serialize races. Tests: php tests/removals_test.php, the existing PHP suites, and npm test in frontend (including candidate reconciliation). To exercise, use separate signed-in members to reach a majority while another tab holds a draft; its first submit must request review without saving, and its next submit must save only the remaining ranking. Open an earlier closed election to confirm its result is unchanged.

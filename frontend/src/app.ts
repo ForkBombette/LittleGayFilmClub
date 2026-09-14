@@ -1,3 +1,4 @@
+import { reconcileCandidates } from './removals.js';
 import { setupMovieDetails, type Movie } from './movie-details.js';
 import { calculateRcv } from './rcv.js';
 import { previewBallots, renderRounds } from './preview.js';
@@ -28,7 +29,7 @@ function setupVoting(): void {
   const message = document.querySelector<HTMLParagraphElement>('#message')!;
   const chartContainer = document.createElement('div');
   speculative.before(chartContainer);
-  const chart = createRoundChart(chartContainer, data.movies);
+  let chart = createRoundChart(chartContainer, data.movies);
 
   let dragging: HTMLElement | null = null;
   let votingClosed = false;
@@ -112,6 +113,21 @@ function setupVoting(): void {
       const result = await response.json();
       if (!response.ok) {
         message.textContent = result.error ?? 'Ballot save failed.';
+        if (result.code === 'candidates_changed') {
+          const reconciled = reconcileCandidates(data.movies, currentRanking(), result.candidateIds);
+          data.movies = reconciled.movies;
+          for (const li of [...list.querySelectorAll<HTMLElement>('li[data-movie-id]')]) {
+            if (!reconciled.ranking.includes(Number(li.dataset.movieId))) li.remove();
+          }
+          dragging?.classList.remove('dragging');
+          dragging = null;
+          chart.reset();
+          chartContainer.replaceChildren();
+          chart = createRoundChart(chartContainer, data.movies);
+          message.textContent = result.error + ' Eliminated: ' + reconciled.removed.map(movie => movie.title).join(', ') + '.';
+          renderSpeculative();
+          if (!data.movies.length) message.textContent = 'All films have been removed. No ballot was saved.';
+        }
         if (result.code === 'election_closed') {
           votingClosed = true;
           chart.reset();
@@ -126,12 +142,14 @@ function setupVoting(): void {
     } catch {
       message.textContent = 'Ballot save failed. Please try again.';
     } finally {
-      submitButton.disabled = votingClosed;
+      submitButton.disabled = votingClosed || data.movies.length === 0;
     }
   });
 
   setRanking(data.committedBallots[String(data.viewer.id)] ?? data.movies.map(movie => movie.id));
   renderSpeculative();
+  submitButton.disabled = data.movies.length === 0;
+  if (!data.movies.length) message.textContent = 'All films have been removed. There is nothing left to rank.';
 }
 
 setupVoting();

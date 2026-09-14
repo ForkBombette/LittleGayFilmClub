@@ -24,6 +24,8 @@ if (!$userId || !$electionId || !is_array($ranking)) {
 try {
     $revision = Elections::submit($pdo, $electionId, $userId, $ranking);
     echo json_encode(['ok' => true, 'revisionId' => $revision]);
+} catch (LGFC\CandidatesChanged $error) {
+    http_response_code(409); echo json_encode(['error' => $error->getMessage(), 'code' => 'candidates_changed', 'candidateIds' => $error->candidateIds]);
 } catch (DomainException $error) {
     http_response_code(409); echo json_encode(['error' => $error->getMessage(), 'code' => 'election_closed']);
 } catch (InvalidArgumentException $error) {

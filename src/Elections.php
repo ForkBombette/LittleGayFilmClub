@@ -9,6 +9,7 @@ final class Elections
 {
     public static function migrate(PDO $pdo): void
     {
+        Removals::migrate($pdo);
         $pdo->exec('CREATE TABLE IF NOT EXISTS election_results (
             election_id INTEGER PRIMARY KEY REFERENCES elections(id),
             result_json TEXT NOT NULL,
@@ -39,7 +40,7 @@ final class Elections
 
     public static function candidateIds(PDO $pdo, int $id): array
     {
-        $stmt = $pdo->prepare('SELECT movie_id FROM election_movies WHERE election_id = ? ORDER BY movie_id');
+        $stmt = $pdo->prepare('SELECT em.movie_id FROM election_movies em WHERE em.election_id = ? AND NOT EXISTS (SELECT 1 FROM election_removals er WHERE er.election_id=em.election_id AND er.movie_id=em.movie_id) ORDER BY em.movie_id');
         $stmt->execute([$id]);
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
@@ -129,7 +130,17 @@ final class Elections
             if ($stmt->fetchColumn() === false) throw new InvalidArgumentException('Choose an active voter.');
             $submitted = $ranking;
             sort($submitted, SORT_NUMERIC);
-            if ($submitted !== self::candidateIds($pdo, $id)) throw new InvalidArgumentException('Ballot must rank every eligible movie exactly once.');
+            $eligible = self::candidateIds($pdo, $id);
+            if ($submitted !== $eligible) {
+                $stmt = $pdo->prepare('SELECT movie_id FROM election_movies WHERE election_id=?');
+                $stmt->execute([$id]);
+                $original = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+                if (count(array_unique($submitted)) === count($submitted) && !array_diff($submitted, $original)
+                    && !array_diff($eligible, $submitted) && array_diff($submitted, $eligible)) {
+                    throw new CandidatesChanged($eligible);
+                }
+                throw new InvalidArgumentException('Ballot must rank every eligible movie exactly once.');
+            }
             $stmt = $pdo->prepare('INSERT INTO ballot_revisions (election_id, user_id) VALUES (?, ?)');
             $stmt->execute([$id, $userId]);
             $revision = (int) $pdo->lastInsertId();

@@ -32,7 +32,7 @@ $stmt = $pdo->prepare(
     'SELECT m.*
      FROM election_movies em
      JOIN movies m ON m.id = em.movie_id
-     WHERE em.election_id = :election_id
+     WHERE em.election_id = :election_id AND NOT EXISTS (SELECT 1 FROM election_removals er WHERE er.election_id=em.election_id AND er.movie_id=em.movie_id)
      ORDER BY m.id'
 );
 $stmt->execute(['election_id' => $electionId]);
@@ -73,7 +73,7 @@ $bootstrap = [
 <main>
     <header><?php Auth::accountBar($viewer); ?>
         <h1>Little Gay Film Club™</h1>
-        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Watched films</a></nav>
+        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Watched films</a> · <a href="removals.php">Removal votes</a></nav>
         <p><?= $election ? htmlspecialchars($election['name']) : 'Between movie nights' ?></p>
         <?php if (!$isOpen): ?><p><?= $election ? 'Voting is closed. This result is frozen.' : 'No election has opened yet. Nominate films, then open an election when ready.' ?></p><?php endif; ?>
     </header>
@@ -85,6 +85,10 @@ $bootstrap = [
         <p>Your ballot, <?= htmlspecialchars($viewer['display_name']) ?>.</p>
 
         <p>Drag films into preference order. This draft is speculative until you submit it.</p>
+        <?php endif; ?>
+        <?php if ($election): ?>
+        <?php $removed = $pdo->prepare('SELECT m.* FROM election_removals er JOIN movies m ON m.id=er.movie_id WHERE er.election_id=?'); $removed->execute([$electionId]); $removedFilms=array_map([Movies::class,'publicView'],$removed->fetchAll()); ?>
+        <?php if ($removedFilms): ?><p>Eliminated by removal vote: <?= htmlspecialchars(implode(', ',array_column($removedFilms,'title'))) ?>. Ballots skip these films. <a href="removals.php">View decisions</a></p><?php endif; ?>
         <?php endif; ?>
         <ol id="ranking-list">
             <?php foreach ($movies as $movie): ?>
@@ -135,7 +139,7 @@ $bootstrap = [
     <section>
         <h2>Draft round preview</h2>
         <p>Uses the committed ballots loaded with this page, replacing your saved vote with this draft. Reordering does not save. Reload deliberately to refresh other voters’ ballots.</p>
-        <div id="speculative-result">Choose a voter to start meddling with democracy.</div>
+        <div id="speculative-result">Calculating your draft…</div>
     </section>
 
     <?php endif; ?>
@@ -145,7 +149,7 @@ $bootstrap = [
         <h2><?= $isOpen ? 'Committed result at page load' : 'Final result' ?></h2>
         <p><?= $isOpen ? 'This authoritative result stays unchanged until you reload, including after submitting.' : 'Voting closed at ' . htmlspecialchars($election['closed_at'] ?? 'an earlier date') . ' UTC. The totals below were stored when this election closed.' ?></p>
         <?php if ($authoritative['winner'] === null): ?>
-            <p><?= $isOpen ? 'No winner yet.' : 'No winner — no ballots were submitted.' ?></p>
+            <p><?= $isOpen ? 'No winner yet.' : 'No winner — no ballots or no remaining candidates.' ?></p>
         <?php else: ?>
             <p class="winner">Winner: <strong><?= htmlspecialchars($movieNames[$authoritative['winner']] ?? 'Unknown') ?></strong></p>
         <?php endif; ?>

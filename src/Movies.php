@@ -61,6 +61,15 @@ final class Movies
     public static function nominate(PDO $pdo, int $userId, array $input): int
     {
         if (!self::activeUser($pdo, $userId)) throw new InvalidArgumentException('Choose an active nominator.');
+        $values = self::details($input);
+        $stmt = $pdo->prepare('INSERT INTO movies (title, release_year, image_url, summary, nominator_id, nomination_pitch, mystery_alias) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$values['title'], $values['year'], $values['image'], $values['summary'], $userId, $values['pitch'], $values['alias']]);
+        // Nomination never changes an already-open election's eligibility snapshot.
+        return (int) $pdo->lastInsertId();
+    }
+
+    private static function details(array $input): array
+    {
         $title = trim((string) ($input['title'] ?? ''));
         $pitch = trim((string) ($input['pitch'] ?? ''));
         $mystery = ($input['mystery'] ?? '') === '1';
@@ -73,10 +82,47 @@ final class Movies
         if (strlen($alias) > 200 || strlen($pitch) > 4000 || strlen($summary) > 8000) throw new InvalidArgumentException('The alias, pitch or synopsis is too long.');
         if ($year !== '' && (!ctype_digit($year) || (int) $year < 1888 || (int) $year > 2100)) throw new InvalidArgumentException('Enter a valid release year.');
         if ($image !== '' && self::safeImage($image) === null) throw new InvalidArgumentException('Use an HTTPS poster URL or a path under images/.');
-        $stmt = $pdo->prepare('INSERT INTO movies (title, release_year, image_url, summary, nominator_id, nomination_pitch, mystery_alias) VALUES (?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$title, $year === '' ? null : (int) $year, $image ?: null, $summary ?: null, $userId, $pitch ?: null, $mystery ? $alias : null]);
-        // Nomination never changes an already-open election's eligibility snapshot.
-        return (int) $pdo->lastInsertId();
+        return ['title' => $title, 'year' => $year === '' ? null : (int) $year,
+            'image' => $image ?: null, 'summary' => $summary ?: null,
+            'pitch' => $pitch ?: null, 'alias' => $mystery ? $alias : null];
+    }
+
+    /** Raw private details may be returned only to the active nominator. */
+    public static function editable(PDO $pdo, int $movieId, int $userId): array
+    {
+        if (!self::activeUser($pdo, $userId)) throw new InvalidArgumentException('Sign in as an active member.');
+        $stmt = $pdo->prepare('SELECT * FROM movies WHERE id = ?');
+        $stmt->execute([$movieId]);
+        $movie = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$movie || (int) $movie['nominator_id'] !== $userId) {
+            throw new InvalidArgumentException('Only this film’s nominator can edit it.');
+        }
+        return $movie;
+    }
+
+    public static function editVersion(array $movie): string
+    {
+        return hash('sha256', json_encode($movie, JSON_THROW_ON_ERROR));
+    }
+
+    public static function edit(PDO $pdo, int $movieId, int $userId, array $input): void
+    {
+        $pdo->exec('BEGIN IMMEDIATE');
+        try {
+            $movie = self::editable($pdo, $movieId, $userId);
+            if (!is_string($input['version'] ?? null) || !hash_equals(self::editVersion($movie), $input['version'])) {
+                throw new InvalidArgumentException('This film changed since you opened the editor. Reload it before saving.');
+            }
+            // Mystery state and ownership are immutable here; only reveal() can disclose it.
+            $input['mystery'] = $movie['mystery_alias'] !== null ? '1' : '';
+            $values = self::details($input);
+            $stmt = $pdo->prepare('UPDATE movies SET title=?, release_year=?, image_url=?, summary=?, nomination_pitch=?, mystery_alias=? WHERE id=?');
+            $stmt->execute([$values['title'], $values['year'], $values['image'], $values['summary'], $values['pitch'], $values['alias'], $movieId]);
+            $pdo->exec('COMMIT');
+        } catch (\Throwable $error) {
+            $pdo->exec('ROLLBACK');
+            throw $error;
+        }
     }
 
     public static function reveal(PDO $pdo, int $movieId, int $userId): void

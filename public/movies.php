@@ -34,16 +34,22 @@ $notice = $_SESSION['notice'] ?? '';
 unset($_SESSION['notice']);
 $movies = array_map([Movies::class, 'publicView'], $pdo->query("SELECT * FROM movies WHERE status IN ('active', 'watched')")->fetchAll());
 usort($movies, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']));
+$mine = array_values(array_filter($movies, static fn(array $movie): bool => $movie['nominator_id'] === $userId));
 ?>
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nominations · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>
 <body><main>
-<header><?php Auth::accountBar($viewer); ?><h1>Film nominations</h1><a href="index.php">Back to voting</a> · <a href="watched.php">Watched films</a><p>New films join the next election. An open election keeps its original list.</p></header>
+<header><?php Auth::accountBar($viewer); ?><h1>Film nominations</h1><a href="index.php">Back to voting</a> · <a href="watched.php">Watched films</a> · <a href="removals.php">Removal votes</a><p>New films join the next election. An open election keeps its original list.</p></header>
 <section>
 
 <?php if ($notice): ?><p role="status"><?= Web::escape($notice) ?></p><?php endif; ?>
 <?php if ($error): ?><p role="alert"><?= Web::escape($error) ?></p><?php endif; ?>
 </section>
+<section><h2>Your nominations (<?= count($mine) ?>)</h2>
+<?php if (!$mine): ?><p>You haven’t nominated any films yet.</p><?php else: ?>
+<ul><?php foreach ($mine as $movie): ?><li><a href="edit-movie.php?movieId=<?= $movie['id'] ?>"><?= Web::escape($movie['title']) ?></a><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></li><?php endforeach; ?></ul>
+<p>Select a film to edit its details and pitch. Mystery reveals are separate, in the catalogue below.</p>
+<?php endif; ?></section>
 <section><h2>Nominate a film</h2>
 <form method="post" class="nomination-form" autocomplete="off">
 <input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="nominate">
@@ -61,6 +67,7 @@ usort($movies, static fn(array $a, array $b): int => strcasecmp($a['title'], $b[
 <?php foreach ($movies as $movie): ?>
 <article class="pool-movie"><h3><?= Web::escape($movie['title']) ?><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></h3>
 <p><?= Web::escape($movie['nomination_pitch'] ?: 'No pitch yet.') ?></p>
+<?php if ($movie['nominator_id'] === $userId): ?><p><a href="edit-movie.php?movieId=<?= $movie['id'] ?>">Edit nomination</a></p><?php endif; ?>
 <?php if ($movie['is_mystery'] && $movie['nominator_id'] === $userId): ?>
 <form method="post"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="reveal"><input type="hidden" name="movieId" value="<?= $movie['id'] ?>">
 <label><input type="checkbox" name="confirm" value="yes" required> Reveal this film’s identity to everyone. This cannot be undone.</label> <button>Reveal film</button>
