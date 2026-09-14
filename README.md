@@ -77,7 +77,7 @@ The browser also calculates a speculative result while you drag, using the commi
 
 - improve ballot UI and movie cards/posters
 - result graph and animation
-- add movies and external metadata search
+- add movies and external metadata search (implemented; requires TMDB configuration)
 - majority removal votes (implemented)
 - admin/user management (implemented)
 - historical replay of ballot revisions
@@ -100,7 +100,7 @@ The draft preview now includes a bar chart above the retained round tables. Use 
 
 ## Movie cards and mystery nominations
 
-Cards show posters when available and neutral artwork otherwise. Details opens a native modal flyout (Escape closes it). Movie search/import and one-comment-per-user discussions remain future work.
+Cards show posters when available and neutral artwork otherwise. Details opens a native modal flyout (Escape closes it). Movie search/import is available when configured; one-comment-per-user discussions remain future work.
 
 Run `php db/migrate.php` once when upgrading an existing database; this adds fields without replacing movies, elections or ballot revisions. Fresh `db/init.php` databases include the fields (init still resets the database). Test with `php tests/movies_test.php` and `npm test` in frontend.
 
@@ -195,3 +195,29 @@ Updates retain the same user ID and all ballots, nominations and removal respons
 Every create/update checks organiser permission inside BEGIN IMMEDIATE. Member edits include a version fingerprint so stale tabs cannot overwrite newer changes. The final active organiser cannot be demoted or deactivated; assign another active organiser first. Inactive organisers do not satisfy that safeguard. Self-demotion redirects to Account; self-deactivation signs out. Explicit device revocation/sign-out can still require CLI recovery for a sole organiser.
 
 No database migration is required. Tests: php tests/members_test.php and php tests/auth_test.php. Exercise using an isolated account: add it, create its personal link, rename it, deactivate and verify its signed-in device loses access, then reactivate and issue a fresh link. Try demoting the only active organiser and saving two stale edits; both must be rejected without changing records.
+
+## Movie search and metadata import
+
+The nomination page can search TMDB by title and optional release year, then copy a selected result's title, year, synopsis and poster into the editable form. The first 20 results are shown; refine the title/year if needed. Import preserves the member's pitch and mystery settings. Selection performs no database write; only Save nomination persists a movie. Missing fields stay editable and manual entry remains available when search is unconfigured or unavailable. Validation errors retain the draft.
+
+### Configure TMDB
+
+Apply for developer API access in your TMDB account settings, then use the API Read Access Token (the bearer token, not the shorter v3 API key). Put only that token in var/tmdb-token.txt, as plain UTF-8 text without quotes. Refresh the nominations page. The file is ignored by Git and blocked from HTTP by the existing var/.htaccess rule. Keep your production copy private too. No database migration is required; PHP cURL with working HTTPS certificate verification is required for live search.
+
+Search is explicitly requested by a signed-in member through a CSRF-protected POST. PHP contacts the fixed TMDB HTTPS endpoint with the bearer token in a header; the browser never receives the credential. Requests have connection/overall timeouts, bounded response size and no redirects. Error responses do not expose provider bodies or credentials. Search terms are sent to TMDB only when the user presses Search; existing catalogue entries, including hidden mysteries, are never searched or refreshed automatically. The importer is available for new nominations and organiser-only historical watched entries. Existing film metadata can still be corrected through the owner-only editor.
+
+Imported metadata is copied into the ordinary movie fields, not kept in sync with TMDB. Mystery filtering continues to remove private title/year/poster/synopsis from shared views. No external provider ID is exposed for hidden films. The Credits page includes TMDB's approved logo and required attribution; retain it when using their data/images. The local logo is the unmodified Primary long (blue) SVG from their official branding page.
+
+Provider references: [authentication](https://developer.themoviedb.org/docs/authentication-application), [movie search](https://developer.themoviedb.org/reference/search-movie), [image URLs](https://developer.themoviedb.org/docs/image-basics), and [attribution](https://developer.themoviedb.org/docs/faq).
+
+Tests: php tests/metadata_test.php, php tests/movies_test.php and npm test in frontend. Fixtures cover provider failures, missing data, safe poster paths, credential handling and import field boundaries. The browser search/import/mystery-save flow is checked with an isolated fake provider; live search has also been verified with the locally configured TMDB token.
+
+## Importing previously watched films
+
+Under Watched films → Add a film we already watched, organisers can use the same TMDB search and import flow. Selection fills the new film's title, year, synopsis and poster while preserving the chosen watched date and optional election link. Review the fields, then Add to watched films; searching and importing alone write nothing. Use Record an existing film when the movie is already in the catalogue.
+
+The film and watched record are saved together through the existing watched service. No ballots are invented, no election candidates are added, and the movie is immediately excluded from future elections. Manual entry remains available; validation errors retain the new-entry draft. Regular members can still browse watched history but cannot see or submit the organiser forms. No migration or additional API setup is needed. Tests cover watched metadata persistence, date/election preservation, validation rollback and the shared importer.
+
+## Known bugs
+
+See [BUGS.md](BUGS.md) for documented issues contributors can pick up, including duplicate entries when adding previously watched films.

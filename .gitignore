@@ -8,3 +8,4 @@ Thumbs.db
 
 /var/allow-local-http
 /var/*login*.html
+/var/tmdb-token.txt

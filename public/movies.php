@@ -10,6 +10,10 @@ $pdo = Database::connect();
 $viewer = Auth::requireUser($pdo);
 $userId = $viewer['id'];
 $error = '';
+$draft = ['title'=>'','year'=>'','image_url'=>'','summary'=>'','alias'=>'','pitch'=>'','mystery'=>''];
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='nominate') {
+    foreach($draft as $key=>$value) $draft[$key]=is_string($_POST[$key]??null)?$_POST[$key]:'';
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Web::checkCsrf();
     try {
@@ -50,17 +54,25 @@ $mine = array_values(array_filter($movies, static fn(array $movie): bool => $mov
 <ul><?php foreach ($mine as $movie): ?><li><a href="edit-movie.php?movieId=<?= $movie['id'] ?>"><?= Web::escape($movie['title']) ?></a><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></li><?php endforeach; ?></ul>
 <p>Select a film to edit its details and pitch. Mystery reveals are separate, in the catalogue below.</p>
 <?php endif; ?></section>
+<section><h2>Find a film</h2>
+<?php if (LGFC\MovieMetadata::configured()->available()): ?>
+<form id="metadata-search" method="post" class="nomination-form"><label>Film title <input name="query" required maxlength="200"></label><label>Release year (optional) <input name="year" type="number" min="1888" max="2100" value="<?= Web::escape($draft['year']) ?>"></label><button>Search TMDB</button></form>
+<p>Selecting a result replaces the title, year, poster and synopsis below. Your pitch and mystery choices stay as you set them. Nothing is saved until you save the nomination.</p>
+<p id="metadata-message" role="status"></p><div id="metadata-results"></div>
+<noscript>Search needs JavaScript. You can still nominate a film manually below.</noscript>
+<?php else: ?><p>Movie search is not available yet. You can enter a film manually below.</p><?php endif; ?>
+<p>Movie data and images from TMDB. <a href="credits.php">Credits</a></p></section>
 <section><h2>Nominate a film</h2>
-<form method="post" class="nomination-form" autocomplete="off">
+<form method="post" id="nomination-form" class="nomination-form" autocomplete="off">
 <input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="nominate">
-<label>Real film title <input name="title" required maxlength="300"></label>
+<label>Real film title <input name="title" required maxlength="300" value="<?= Web::escape($draft['title']) ?>"></label>
 <label>Release year <input name="year" type="number" min="1888" max="2100"></label>
-<label>Poster URL or local images/ path <input name="image_url" maxlength="2000" placeholder="https://…"></label>
-<label>Synopsis <textarea name="summary" rows="3" maxlength="8000"></textarea></label>
-<label><span><input name="mystery" type="checkbox" value="1"> Keep this film a mystery</span></label>
+<label>Poster URL or local images/ path <input name="image_url" maxlength="2000" placeholder="https://…" value="<?= Web::escape($draft['image_url']) ?>"></label>
+<label>Synopsis <textarea name="summary" rows="3" maxlength="8000"><?= Web::escape($draft['summary']) ?></textarea></label>
+<label><span><input name="mystery" type="checkbox" value="1" <?= $draft['mystery']==='1'?'checked':'' ?>> Keep this film a mystery</span></label>
 <p>A mystery shows only your alias and pitch. Its title, year, poster and synopsis stay hidden until you deliberately reveal it. Avoid spoilers in your pitch.</p>
-<label>Public mystery alias <input name="alias" maxlength="200" placeholder="An entirely sensible selection"></label>
-<label>Your pitch <textarea name="pitch" rows="4" maxlength="4000"></textarea></label>
+<label>Public mystery alias <input name="alias" maxlength="200" placeholder="An entirely sensible selection" value="<?= Web::escape($draft['alias']) ?>"></label>
+<label>Your pitch <textarea name="pitch" rows="4" maxlength="4000"><?= Web::escape($draft['pitch']) ?></textarea></label>
 <button>Save nomination</button>
 </form></section>
 <section><h2>Film catalogue</h2>
@@ -75,4 +87,4 @@ $mine = array_values(array_filter($movies, static fn(array $movie): bool => $mov
 <?php elseif ($movie['is_mystery']): ?><p>Only the nominator can deliberately reveal this film. Winning or closing an election will not reveal it.</p><?php endif; ?>
 </article>
 <?php endforeach; ?>
-</section></main></body></html>
+</section></main><script type="module" src="../frontend/dist/nomination.js"></script></body></html>

@@ -73,7 +73,7 @@ $bootstrap = [
 <main>
     <header><?php Auth::accountBar($viewer); ?>
         <h1>Little Gay Film Club™</h1>
-        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Watched films</a> · <a href="removals.php">Removal votes</a></nav>
+        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Watched films</a> · <a href="removals.php">Removal votes</a> · <a href="credits.php">Credits</a></nav>
         <p><?= $election ? htmlspecialchars($election['name']) : 'Between movie nights' ?></p>
         <?php if (!$isOpen): ?><p><?= $election ? 'Voting is closed. This result is frozen.' : 'No election has opened yet. Nominate films, then open an election when ready.' ?></p><?php endif; ?>
     </header>

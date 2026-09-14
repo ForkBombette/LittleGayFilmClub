@@ -48,3 +48,14 @@ rejects(fn() => Watched::record($pdo, 1, null, ['title' => 'Invalid relation', '
 check($count === $pdo->query('SELECT COUNT(*) FROM movies')->fetchColumn(), 'failed operation leaves no orphan movie');
 rejects(fn() => Watched::record($pdo, 1, null, ['title' => '']), 'blank historical title rejected');
 check($final === Elections::finalResult($pdo, 1), 'stored election outcome remains unchanged');
+$beforeImport=$pdo->query('SELECT * FROM ballot_revisions')->fetchAll();
+$candidatesBeforeImport=Elections::candidateIds($pdo,$next);
+$imported=Watched::record($pdo,1,null,['title'=>'Imported past film','year'=>'1980','image_url'=>'https://image.tmdb.org/t/p/w500/test.jpg','summary'=>'Imported synopsis','watched_on'=>'2020-02-03','election_id'=>'1']);
+$row=$pdo->query('SELECT * FROM movies WHERE id='.$imported)->fetch();
+check($row['status']==='watched' && $row['image_url']==='https://image.tmdb.org/t/p/w500/test.jpg' && $row['summary']==='Imported synopsis','historical import stores poster and synopsis as watched');
+$watch=$pdo->query('SELECT * FROM movie_watches WHERE movie_id='.$imported)->fetch();
+check($watch['watched_on']==='2020-02-03' && (int)$watch['election_id']===1 && (int)$watch['recorded_by']===1,'historical import retains chosen date, election and recorder');
+check(Elections::candidateIds($pdo,$next)===$candidatesBeforeImport && $beforeImport===$pdo->query('SELECT * FROM ballot_revisions')->fetchAll(),'historical import leaves eligibility and ballots unchanged');
+$count=(int)$pdo->query('SELECT COUNT(*) FROM movies')->fetchColumn();
+rejects(fn()=>Watched::record($pdo,1,null,['title'=>'Unsafe imported poster','image_url'=>'javascript:alert(1)']),'historical import validates poster URL');
+check((int)$pdo->query('SELECT COUNT(*) FROM movies')->fetchColumn()===$count,'failed metadata import leaves no orphan film');
