@@ -190,3 +190,11 @@ The film and watched record are saved together through the existing watched serv
 ## Known bugs
 
 See [BUGS.md](BUGS.md). Duplicate real-film entries through the previously watched new-film flow are deliberately parked at low priority. Leave the implementation and existing duplicate records intact until that fix is explicitly taken on.
+
+## Ballot history
+
+Explore ballot history from an election’s result or the All elections list. All signed-in members can step through submissions, inspect each ranking and calculated RCV rounds, and see how revisions replace the same member’s vote. Step zero shows no ballots. Submission IDs provide deterministic order even when timestamps share a second. Reload explicitly to see new submissions; the voting-page draft baseline is unaffected.
+
+History reads a consistent database snapshot and uses the existing PHP RCV engine. Calculations use that election’s remaining candidates throughout: if films were removed, the page explicitly describes these as recalculations rather than exact pre-removal outcomes. Precise removal/ballot event replay remains future work because existing timestamps do not establish an order within a second. Closed history ends at each voter’s frozen revision, and the stored final result remains authoritative. Names use current member names and public movie labels; hidden mysteries stay hidden. No schema migration is needed.
+
+Tests: `php tests/history_test.php` plus the existing election, removal and movie tests. Exercise with two members and several revisions, step back to zero, inspect a removed film’s original ranking, and compare a closed election with its frozen result. Animation remains parked.

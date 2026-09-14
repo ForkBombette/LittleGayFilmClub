@@ -59,5 +59,5 @@ usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['t
 <?php endif; ?>
 <?php endif; ?>
 <section><h2>All elections</h2><?php if (!$elections): ?><p>No elections yet.</p><?php endif; ?>
-<ul class="election-history"><?php foreach ($elections as $election): ?><li><a href="index.php?electionId=<?= (int) $election['id'] ?>"><?= Web::escape($election['name']) ?></a> · <?= $election['status'] === 'open' ? 'Voting open' : 'Closed — final result' ?><?php if ($election['closed_at']): ?> · <?= Web::escape($election['closed_at']) ?> UTC<?php endif; ?></li><?php endforeach; ?></ul></section>
+<ul class="election-history"><?php foreach ($elections as $election): ?><li><a href="index.php?electionId=<?= (int) $election['id'] ?>"><?= Web::escape($election['name']) ?></a> · <?= $election['status'] === 'open' ? 'Voting open' : 'Closed — final result' ?><?php if ($election['closed_at']): ?> · <?= Web::escape($election['closed_at']) ?> UTC<?php endif; ?> · <a href="ballot-history.php?electionId=<?= (int) $election['id'] ?>">Ballot history</a></li><?php endforeach; ?></ul></section>
 </main></body></html>

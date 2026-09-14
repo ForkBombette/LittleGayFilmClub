@@ -147,6 +147,7 @@ $bootstrap = [
     <?php if ($election): ?>
     <section>
         <h2><?= $isOpen ? 'Committed result at page load' : 'Final result' ?></h2>
+        <p><a href="ballot-history.php?electionId=<?= $electionId ?>">Explore ballot history</a></p>
         <p><?= $isOpen ? 'This authoritative result stays unchanged until you reload, including after submitting.' : 'Voting closed at ' . htmlspecialchars($election['closed_at'] ?? 'an earlier date') . ' UTC. The totals below were stored when this election closed.' ?></p>
         <?php if ($authoritative['winner'] === null): ?>
             <p><?= $isOpen ? 'No winner yet.' : 'No winner — no ballots or no remaining candidates.' ?></p>
