@@ -16,3 +16,5 @@ require_once __DIR__ . '/Auth.php';
 
 require_once __DIR__ . '/Removals.php';
 require_once __DIR__ . '/CandidatesChanged.php';
+
+require_once __DIR__ . '/Members.php';

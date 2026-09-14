@@ -51,7 +51,7 @@ Nice:
 - eligibility freeze
 
 Stretch-ish:
-- user management console
+- user management console (implemented)
 - vote timeline/replay
 
 ## Coding style
@@ -71,6 +71,7 @@ Exercise: sign in, drag a film across another and watch totals before releasing.
 
 - Final polish: a non-interactive fake client-side AI commentator blob, reacting to events with canned sarcastic comments. No actual AI, API or network requests. Defer until after core work.
 - Movie flyout discussions: optional nominator pitch plus at most one comment per user per movie; users can edit/delete their own comment. Discussions attach to movies and persist across elections. No priority change.
+- Final visual polish / troll feature: colour-coded vertical bars with a deliberately meaningless trend line overlaid, or the closest practical effect. It may display a fictional trend value and trigger canned remarks from the fake AI commentator. This is decorative only: it must not affect RCV calculations, totals, thresholds or results. Keep parked until after core work.
 
 ## Movie cards and mystery nominations
 
@@ -114,6 +115,7 @@ Personal links are single-use and expire after seven days. Redeeming one remembe
 | Reveal someone else's mystery | No | No |
 | Open/close elections and record/correct watched films | No | Yes |
 | Generate personal links and revoke devices/links | No | Yes |
+| Add/rename members, change roles and activate/deactivate | No | Yes |
 
 Each request reloads active status and role from the database. Submitted user IDs never select the voter, nominator or watch recorder. State-changing requests require CSRF protection. Account provides sign-out for the current device; organiser revocation removes all devices and unused links for that member, preserving their ballots. Creating a new link replaces unused links but keeps existing devices signed in.
 
@@ -127,9 +129,9 @@ Each request reloads active status and role from the database. Submitted user ID
 php db/create-login.php --user "MEMBER NAME" --base-url "https://YOUR_HOST/public" --output "var/organiser-login.html"
 ```
 
-4. Open Account → Member login links to create links for other members and share them privately. Each extra device needs a fresh link. Delete the private bootstrap HTML once used; it is ignored by Git and its directory is denied by Apache.
+4. Open Account → Manage members and login links to create links for other members and share them privately. Each extra device needs a fresh link. Delete the private bootstrap HTML once used; it is ignored by Git and its directory is denied by Apache.
 
-Apache must honor the supplied `.htaccess` rules; another server needs equivalent protection for private directories. Creating/deactivating users and editing roles through a web console remain future work. No external identity provider, email delivery or API is involved.
+Apache must honor the supplied `.htaccess` rules; another server needs equivalent protection for private directories. Organisers can create and manage members through Account → Manage members and login links. No external identity provider, email delivery or API is involved.
 
 Validation: `php tests/auth_test.php`, the existing elections/watched/movies/RCV PHP tests, and `npm test` in `frontend`. HTTP checks should use an isolated copy/database and separate cookie sessions: anonymous requests redirect (ballot API returns 401), members receive 403 for organiser writes and management, missing CSRF gives 403, forged actor IDs cannot impersonate, one-time links cannot be replayed, and revocation invalidates an existing login. Confirm that signing in restores only that member's current ballot and preserves the draft snapshot rules.
 
@@ -152,3 +154,13 @@ Passing marks the movie removed and records exclusions only for currently open e
 A stale ballot POST receives HTTP 409 / candidates_changed with current eligible IDs and creates no revision. The browser removes those films from its current draft, retains the relative order, rebuilds the round preview, and asks for review and a second submission. It does not fetch newer votes or replace the committed baseline. Another intervening removal causes another review. Closure still rejects submissions with election_closed. The page-load committed-result section remains explicitly a snapshot.
 
 Upgrade with php db/migrate.php; this adds removal_requests, removal_votes and election_removals without changing existing data. Fresh schema includes them. Removal, election lifecycle and ballot writes share BEGIN IMMEDIATE to serialize races. Tests: php tests/removals_test.php, the existing PHP suites, and npm test in frontend (including candidate reconciliation). To exercise, use separate signed-in members to reach a majority while another tab holds a draft; its first submit must request review without saving, and its next submit must save only the remaining ranking. Open an earlier closed election to confirm its result is unchanged.
+
+## Member management
+
+Account → Manage members and login links lets organisers add members, rename accounts, change roles, deactivate/reactivate membership, and manage invitations/devices. New accounts start as active members; promotion is an explicit edit. Names must be nonempty, at most 100 characters, and cannot duplicate an existing account (including inactive accounts; ASCII case variants compare equal).
+
+Updates retain the same user ID and all ballots, nominations and removal responses. Deactivation deletes login links and remembered sessions; reactivation requires a fresh link and never restores the old credentials. Role and name changes are reflected on the next authenticated request. No accounts are deleted. Existing election ballots remain counted; active membership affects pending removal counts and thresholds under the existing next-response rule. Completed removal decisions and closed results stay unchanged.
+
+Every create/update checks organiser permission inside BEGIN IMMEDIATE. Member edits include a version fingerprint so stale tabs cannot overwrite newer changes. The final active organiser cannot be demoted or deactivated; assign another active organiser first. Inactive organisers do not satisfy that safeguard. Self-demotion redirects to Account; self-deactivation signs out. Explicit device revocation/sign-out can still require CLI recovery for a sole organiser.
+
+No database migration is required. Tests: php tests/members_test.php and php tests/auth_test.php. Exercise using an isolated account: add it, create its personal link, rename it, deactivate and verify its signed-in device loses access, then reactivate and issue a fresh link. Try demoting the only active organiser and saving two stale edits; both must be rejected without changing records.
