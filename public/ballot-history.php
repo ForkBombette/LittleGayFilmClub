@@ -18,17 +18,18 @@ $requested = filter_var($_GET['step'] ?? null, FILTER_VALIDATE_INT);
 $position = $requested === false || $requested === null ? $count : max(0, min($count, $requested));
 $step = $position > 0 ? $steps[$position - 1] : null;
 $result = $step['result'] ?? ['winner' => null, 'rounds' => []];
-$name = static fn(int $movieId): string => Web::escape($history['movies'][$movieId] ?? 'Unknown film');
+$name = static fn(int $movieId): string => LGFC\FilmUi::button($movieId, $history['movies'][$movieId] ?? 'Unknown film');
 $link = static fn(int $number): string => 'ballot-history.php?electionId=' . (int) $id . '&amp;step=' . $number;
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ballot history · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>
 <body><?php LGFC\Navigation::render($viewer, 'ballot-history.php'); ?><main id="main-content" tabindex="-1">
 <header><h1>Ballot history</h1>
 <nav><a href="index.php?electionId=<?= (int) $id ?>">Voting and results</a> · <a href="elections.php">All elections</a></nav>
-<p><?= Web::escape($history['election']['name']) ?> · <?= $history['election']['status'] === 'closed' ? 'Closed' : 'Voting open — reload for new submissions' ?></p>
+<p><?= Web::escape($history['election']['name']) ?> · <?= $history['cancelled'] ? 'Cancelled' : ($history['election']['status'] === 'closed' ? 'Closed' : 'Voting open — reload for new submissions') ?></p>
+<?php if($history['cancelled']): ?><p><strong>This election was cancelled.</strong> These calculations are archived for reference; they did not select the announced film.</p><?php endif; ?>
 <p>Each submission replaces that member’s previous ballot. Revisions never give anyone an extra vote. Names and film details reflect their current public display.</p>
 <?php if ($history['removed']): ?><p><strong>Recalculated with removed films excluded throughout.</strong> This shows how the saved ballots compare using this election’s remaining films, rather than the exact results displayed before each removal. Removed: <?= implode(', ', array_map($name, $history['removed'])) ?>.</p><?php endif; ?>
-<?php if ($history['final'] !== null): ?><p>Stored final winner: <strong><?= $history['final']['winner'] === null ? 'No winner' : $name($history['final']['winner']) ?></strong>. <a href="index.php?electionId=<?= (int) $id ?>">View the frozen final rounds</a>.</p><?php endif; ?>
+<?php if ($history['final'] !== null): ?><p><?= $history['cancelled'] ? 'Archived leader at cancellation' : 'Stored final winner' ?>: <strong><?= $history['final']['winner'] === null ? 'No winner' : $name($history['final']['winner']) ?></strong>. <a href="index.php?electionId=<?= (int) $id ?>">View the stored rounds</a>.</p><?php endif; ?>
 </header>
 <section aria-labelledby="step-heading"><h2 id="step-heading">Step <?= $position ?> of <?= $count ?></h2>
 <nav aria-label="Ballot history steps" class="round-controls">
@@ -50,4 +51,4 @@ $link = static fn(int $number): string => 'ballot-history.php?electionId=' . (in
 <?php endif; ?></section>
 <section><h2>Submission timeline</h2><p>Ordered by submission ID, including when timestamps share the same second.</p>
 <ol class="election-history"><?php foreach ($steps as $index => $entry): ?><li><a href="<?= $link($index + 1) ?>"<?= $position === $index + 1 ? ' aria-current="step"' : '' ?>><?= Web::escape($entry['name']) ?> · <?= $entry['version'] === 1 ? 'First submission' : 'Revision ' . $entry['version'] ?></a> · <?= Web::escape($entry['created_at']) ?> UTC · <?= $entry['voters'] ?> ballot<?= $entry['voters'] === 1 ? '' : 's' ?> · Winner: <?= $entry['result']['winner'] === null ? 'None' : $name($entry['result']['winner']) ?></li><?php endforeach; ?></ol>
-</section></main></body></html>
+</section></main><?php require dirname(__DIR__) . '/src/movie-dialog.php'; ?></body></html>

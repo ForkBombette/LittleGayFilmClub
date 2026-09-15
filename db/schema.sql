@@ -100,3 +100,27 @@ CREATE TABLE IF NOT EXISTS election_removals (
     PRIMARY KEY(election_id,movie_id),
     FOREIGN KEY(election_id,movie_id) REFERENCES election_movies(election_id,movie_id)
 );
+CREATE TABLE IF NOT EXISTS movie_comments (
+    movie_id INTEGER NOT NULL REFERENCES movies(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    version TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (movie_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS movie_night_announcements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    movie_id INTEGER NULL REFERENCES movies(id),
+    scheduled_on TEXT NULL,
+    source TEXT NOT NULL CHECK(source IN ('election','direct','cleared')),
+    election_id INTEGER NULL REFERENCES elections(id),
+    organised_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS election_cancellations (
+    election_id INTEGER PRIMARY KEY REFERENCES elections(id),
+    announcement_id INTEGER NOT NULL REFERENCES movie_night_announcements(id),
+    cancelled_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

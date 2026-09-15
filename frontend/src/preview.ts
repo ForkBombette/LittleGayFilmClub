@@ -1,3 +1,4 @@
+import { filmText, type FilmLabel } from './film-label.js';
 import { calculateRcv, type Round } from './rcv.js';
 
 export function previewBallots(snapshot: Record<string, number[]>, userId: number, draft: number[]): number[][] {
@@ -12,8 +13,7 @@ export function transfers(round: Round, next: Round): Array<{ id: number | null;
   })), { id: null, count: next.exhausted - round.exhausted }].filter(flow => flow.count > 0);
 }
 
-export function renderRounds(container: HTMLElement, result: ReturnType<typeof calculateRcv>, movies: Array<{id: number; title: string}>): void {
-  const name = (id: number) => movies.find(movie => Number(movie.id) === id)?.title ?? `Movie ${id}`;
+export function renderRounds(container: HTMLElement, result: ReturnType<typeof calculateRcv>, movies: FilmLabel[]): void {
   const add = (parent: HTMLElement, tag: string, text: string, className = '') => {
     const element = document.createElement(tag);
     element.textContent = text;
@@ -22,7 +22,7 @@ export function renderRounds(container: HTMLElement, result: ReturnType<typeof c
     return element;
   };
   container.replaceChildren();
-  add(container, 'p', result.winner === null ? 'No winner.' : `With this draft: ${name(result.winner)} wins.`, 'winner');
+  filmText(add(container, 'p', '', 'winner'), result.winner === null ? ['No winner.'] : ['With this draft: ', result.winner, ' wins.'], movies);
   result.rounds.forEach((round, index) => {
     const article = add(container, 'article', '', 'round');
     add(article, 'h3', `Round ${index + 1}`);
@@ -36,19 +36,22 @@ export function renderRounds(container: HTMLElement, result: ReturnType<typeof c
     for (const [id, count] of Object.entries(round.counts)) {
       const candidate = Number(id);
       const row = add(body, 'tr', '');
-      add(row, 'th', name(candidate)).setAttribute('scope', 'row');
+      const label = add(row, 'th', ''); label.setAttribute('scope', 'row'); filmText(label, [candidate], movies);
       add(row, 'td', String(count));
       add(row, 'td', candidate === round.winner ? 'Winner' : candidate === round.eliminated ? 'Eliminated' : 'Continuing');
     }
     if (round.eliminated !== null) {
       const tied = Object.values(round.counts).filter(count => count === round.counts[round.eliminated!]).length > 1;
-      add(article, 'p', `Eliminated: ${name(round.eliminated)}.${tied ? ' Tied lowest: the lowest numeric candidate ID is eliminated.' : ''}`);
+      filmText(add(article, 'p', ''), ['Eliminated: ', round.eliminated, `.${tied ? ' Tied lowest: the lowest numeric candidate ID is eliminated.' : ''}`], movies);
       const next = result.rounds[index + 1];
       if (next) {
         const flows = transfers(round, next);
-        add(article, 'p', `To round ${index + 2}: ${flows.length ? flows.map(flow => `${flow.count} → ${flow.id === null ? 'exhausted' : name(flow.id)}`).join(' · ') : 'no votes to transfer'}.`, 'transfers');
+        const parts: Array<string | number> = [`To round ${index + 2}: `];
+        flows.forEach((flow, i) => { if (i) parts.push(' · '); parts.push(`${flow.count} → `, flow.id ?? 'exhausted'); });
+        if (!flows.length) parts.push('no votes to transfer');
+        parts.push('.'); filmText(add(article, 'p', '', 'transfers'), parts, movies);
       } else if (result.winner !== null) {
-        add(article, 'p', `${name(result.winner)} wins as the last remaining candidate. The engine does not tally another round.`);
+        filmText(add(article, 'p', ''), [result.winner, ' wins as the last remaining candidate. The engine does not tally another round.'], movies);
       }
     }
   });

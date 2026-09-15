@@ -25,6 +25,7 @@ if (isset($_GET['electionId'])) {
 }
 $electionId = $election ? (int) $election['id'] : 0;
 $isOpen = $election && $election['status'] === 'open';
+$isCancelled = $election && LGFC\MovieNights::cancelled($pdo,$electionId);
 
 
 
@@ -49,7 +50,7 @@ $watchedForElection = array_values(array_filter(Watched::history($pdo), static f
 
 $movieNames = [];
 foreach ($movies as $movie) {
-    $movieNames[(int) $movie['id']] = $movie['title'];
+    $movieNames[(int) $movie['id']] = LGFC\FilmUi::label($movie);
 }
 
 $bootstrap = [
@@ -72,10 +73,10 @@ $bootstrap = [
 <body><?php LGFC\Navigation::render($viewer, 'index.php'); ?>
 <main id="main-content" tabindex="-1">
     <header>
-        <p class="eyebrow">The voting chamber</p><h1><?= $isOpen ? 'Tonight’s vote' : ($election ? 'Election result' : 'Between movie nights') ?></h1>
+        <p class="eyebrow">The voting chamber</p><h1><?= $isOpen ? 'Tonight’s vote' : ($isCancelled ? 'Cancelled election' : ($election ? 'Election result' : 'Between movie nights')) ?></h1>
 
         <p><?= $election ? htmlspecialchars($election['name']) : 'Between movie nights' ?></p>
-        <?php if (!$isOpen): ?><p><?= $election ? 'Voting is closed. This result is frozen.' : 'No election has opened yet. Nominate films, then open an election when ready.' ?></p><?php endif; ?>
+        <?php if (!$isOpen): ?><p><?= $election ? ($isCancelled ? 'This election was cancelled by a direct movie-night choice. The archived tally did not select the announced film.' : 'Voting is closed. This result is frozen.') : 'No election has opened yet. Nominate films, then open an election when ready.' ?></p><?php endif; ?>
     </header>
 
     <div class="<?= $isOpen ? 'voting-layout' : 'election-readonly' ?>">
@@ -88,7 +89,7 @@ $bootstrap = [
         <?php endif; ?>
         <?php if ($election): ?>
         <?php $removed = $pdo->prepare('SELECT m.* FROM election_removals er JOIN movies m ON m.id=er.movie_id WHERE er.election_id=?'); $removed->execute([$electionId]); $removedFilms=array_map([Movies::class,'publicView'],$removed->fetchAll()); ?>
-        <?php if ($removedFilms): ?><p>Eliminated by removal vote: <?= htmlspecialchars(implode(', ',array_column($removedFilms,'title'))) ?>. Ballots skip these films. <a href="removals.php">View decisions</a></p><?php endif; ?>
+        <?php if ($removedFilms): ?><p>Eliminated by removal vote: <?= implode(', ',array_map([LGFC\FilmUi::class,'movie'],$removedFilms)) ?>. Ballots skip these films. <a href="removals.php">View decisions</a></p><?php endif; ?>
         <?php endif; ?>
         <ol id="ranking-list">
             <?php foreach ($movies as $movie): ?>
@@ -98,8 +99,8 @@ $bootstrap = [
                         <?php if ($movie['image_url']): ?><img src="<?= htmlspecialchars($movie['image_url'], ENT_QUOTES) ?>" alt="" draggable="false" loading="lazy" referrerpolicy="no-referrer"><?php else: ?><span><?= $movie['is_mystery'] ? '?' : '▶' ?></span><?php endif; ?>
                     </div>
                     <div class="movie-card-copy">
-                        <strong><?= htmlspecialchars($movie['title']) ?></strong>
-                        <small><?= $movie['is_mystery'] ? 'Mystery film · judge it by the pitch' : ($movie['release_year'] ?? 'Year not added') ?></small>
+                        <strong><?= LGFC\FilmUi::movie($movie) ?></strong>
+                        <?php if ($movie['is_mystery'] || $movie['release_year'] === null): ?><small><?= $movie['is_mystery'] ? 'Mystery film · judge it by the pitch' : 'Year not added' ?></small><?php endif; ?>
                         <button type="button" class="movie-details-button" data-details="<?= $movie['id'] ?>" aria-haspopup="dialog">Details<span class="sr-only">: <?= htmlspecialchars($movie['title']) ?></span></button>
                     </div>
                 </li>
@@ -122,8 +123,8 @@ $bootstrap = [
                             <?php if ($movie['image_url']): ?><img src="<?= htmlspecialchars($movie['image_url'], ENT_QUOTES) ?>" alt="" draggable="false" loading="lazy" referrerpolicy="no-referrer"><?php else: ?><span><?= $movie['is_mystery'] ? '?' : '▶' ?></span><?php endif; ?>
                         </div>
                         <div class="movie-card-copy">
-                            <strong><?= htmlspecialchars($movie['title']) ?></strong>
-                            <small><?= $movie['is_mystery'] ? 'Mystery film · judge it by the pitch' : ($movie['release_year'] ?? 'Year not added') ?></small>
+                            <strong><?= LGFC\FilmUi::movie($movie) ?></strong>
+                            <?php if ($movie['is_mystery'] || $movie['release_year'] === null): ?><small><?= $movie['is_mystery'] ? 'Mystery film · judge it by the pitch' : 'Year not added' ?></small><?php endif; ?>
                             <button type="button" class="movie-details-button" data-details="<?= $movie['id'] ?>" aria-haspopup="dialog">Details<span class="sr-only">: <?= htmlspecialchars($movie['title']) ?></span></button>
                         </div>
                     </li>
@@ -146,30 +147,30 @@ $bootstrap = [
     </div>
     <?php if ($election): ?>
     <section>
-        <h2><?= $isOpen ? 'Committed result at page load' : 'Final result' ?></h2>
+        <h2><?= $isOpen ? 'Committed result at page load' : ($isCancelled ? 'Archived tally at cancellation' : 'Final result') ?></h2>
         <p><a href="ballot-history.php?electionId=<?= $electionId ?>">Explore ballot history</a></p>
         <p><?= $isOpen ? 'This authoritative result stays unchanged until you reload, including after submitting.' : 'Voting closed at ' . htmlspecialchars($election['closed_at'] ?? 'an earlier date') . ' UTC. The totals below were stored when this election closed.' ?></p>
         <?php if ($authoritative['winner'] === null): ?>
             <p><?= $isOpen ? 'No winner yet.' : 'No winner — no ballots or no remaining candidates.' ?></p>
         <?php else: ?>
-            <p class="winner">Winner: <strong><?= htmlspecialchars($movieNames[$authoritative['winner']] ?? 'Unknown') ?></strong></p>
+            <p class="winner"><?= $isCancelled ? 'Leader when voting stopped' : 'Winner' ?>: <strong><?= LGFC\FilmUi::button($authoritative['winner'], $movieNames[$authoritative['winner']] ?? 'Unknown') ?></strong></p>
         <?php endif; ?>
 
-        <?php if (!$isOpen): ?>
+        <?php if (!$isOpen && !$isCancelled): ?>
         <h3>What we actually watched</h3>
         <?php if (!$watchedForElection): ?><p>No watched film recorded for this election yet.</p><?php endif; ?>
-        <ul><?php foreach ($watchedForElection as $entry): ?><li><?= htmlspecialchars($entry['movie']['title']) ?> · <?= $entry['watched_on'] ? htmlspecialchars($entry['watched_on']) : 'Date unknown' ?></li><?php endforeach; ?></ul>
+        <ul><?php foreach ($watchedForElection as $entry): ?><li><?= LGFC\FilmUi::movie($entry['movie']) ?> · <?= $entry['watched_on'] ? htmlspecialchars($entry['watched_on']) : 'Date unknown' ?></li><?php endforeach; ?></ul>
         <?php if ($isOrganiser): ?><p><a href="watched.php?electionId=<?= $electionId ?><?= $authoritative['winner'] !== null ? '&amp;movieId=' . (int) $authoritative['winner'] : '' ?>">Record what we actually watched</a> — choose the winner or a different film.</p><?php endif; ?><?php endif; ?>
         <?php foreach ($authoritative['rounds'] as $index => $round): ?>
             <article class="round">
                 <h3>Round <?= $index + 1 ?></h3>
                 <ul>
                     <?php foreach ($round['counts'] as $movieId => $count): ?>
-                        <li><?= htmlspecialchars($movieNames[(int) $movieId] ?? ('Movie ' . $movieId)) ?>: <?= (int) $count ?></li>
+                        <li><?= LGFC\FilmUi::button((int)$movieId, $movieNames[(int)$movieId] ?? ('Movie ' . $movieId)) ?>: <?= (int) $count ?></li>
                     <?php endforeach; ?>
                 </ul>
                 <?php if ($round['eliminated'] !== null): ?>
-                    <p>Eliminated: <?= htmlspecialchars($movieNames[$round['eliminated']] ?? 'Unknown') ?></p>
+                    <p>Eliminated: <?= LGFC\FilmUi::button($round['eliminated'], $movieNames[$round['eliminated']] ?? 'Unknown') ?></p>
                 <?php endif; ?>
             </article>
         <?php endforeach; ?>

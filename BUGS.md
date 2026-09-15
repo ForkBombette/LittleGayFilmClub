@@ -25,3 +25,19 @@ Expected: recognise an existing catalogue film and guide the organiser to reuse 
 - Add regression coverage for repeated imports/manual entry, existing-catalogue reuse, and same-title films from different years when implementing the fix.
 
 For now, leave the implementation and existing duplicate records intact. This is a documented backlog item, not a request for automatic cleanup or a change to voting rules.
+
+### Related case: re-nominating a removed film
+
+Status: open, low priority; part of the same deferred film-identity/duplicate-entry issue.
+
+Reported behaviour: a film can be nominated again after it has been removed.
+
+Reproduce: complete a removal vote for a film, then use the new-nomination form to nominate the same real film again, manually or through search/import.
+
+Actual: a new catalogue entry can represent the removed film. The earlier removal belongs to the original movie ID, so it does not prevent the new entry from joining the active pool and becoming eligible for a future election. This does not restore the original entry to an existing election snapshot.
+
+Expected: detect the existing removed film and prevent a fresh duplicate nomination from silently bypassing its removal. Whether and how a club may deliberately reinstate a removed film remains a separate policy decision; do not invent that policy as part of deduplication.
+
+When this is taken on, inspect `public/movies.php`, `src/Movies.php` and `src/Removals.php` alongside the watched-film paths above. Add regression coverage for re-nominating removed films, including concurrent nominations and distinct films sharing a title. Preserve the original removal decisions, ballots and election history.
+
+Documentation only for now: leave code and existing records unchanged.

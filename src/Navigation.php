@@ -8,11 +8,13 @@ final class Navigation
     public static function render(array $viewer, string $page): void
     {
         $groups = [
-            'vote' => ['Vote & results', 'index.php', ['index.php' => 'Vote & results']],
+            'vote' => ['Vote & results', 'index.php', ['movie-night.php' => 'Next movie night']],
             'films' => ['Films', 'movies.php', ['movies.php' => 'Nominations', 'watched.php' => 'Watched films', 'removals.php' => 'Removal votes']],
             'elections' => ['Elections', 'elections.php', ['elections.php' => 'Election history & controls']],
             'club' => ['Club', 'account.php', ['account.php' => 'Your account', 'credits.php' => 'Credits']],
         ];
+        $night = MovieNights::current(Database::connect());
+        $today = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/London')))->format('Y-m-d');
         if ($viewer['role'] === 'organiser') {
             $groups['club'][2] = ['account.php' => 'Your account', 'members.php' => 'Members & invitations', 'credits.php' => 'Credits'];
         }
@@ -34,9 +36,16 @@ final class Navigation
             <a href="<?= $href ?>"<?= $active === $key ? ' aria-current="' . ($page === $href ? 'page' : 'location') . '"' : '' ?>><?= Web::escape($label) ?></a>
             <?php endforeach; ?>
         </nav>
-        <?php if ($active !== 'vote'): ?><nav class="secondary-nav" aria-label="<?= Web::escape($groups[$active][0]) ?> navigation">
+        <nav class="secondary-nav" aria-label="<?= Web::escape($groups[$active][0]) ?> navigation">
             <?php foreach ($groups[$active][2] as $href => $label): ?><a href="<?= $href ?>"<?= $page === $href ? ' aria-current="page"' : '' ?>><?= Web::escape($label) ?></a><?php endforeach; ?>
-        </nav><?php endif; ?>
+        </nav>
+        <aside class="movie-night-banner" aria-label="Movie night announcement">
+        <?php if ($night): ?>
+            <p><strong><?= $night['scheduled_on'] < $today ? 'Last announced movie night' : 'Next movie night' ?></strong> · <time datetime="<?= Web::escape($night['scheduled_on']) ?>"><?= Web::escape((new \DateTimeImmutable($night['scheduled_on']))->format('l j F Y')) ?></time></p>
+            <p><?= $night['source'] === 'election' ? 'The democratically selected film is ' : 'We’re watching ' ?><a href="movie-night.php#chosen-film"><?= Web::escape(FilmUi::label($night['movie'])) ?></a><?= $night['source'] === 'direct' ? ' · chosen directly by an organiser.' : '.' ?></p>
+        <?php else: ?><p><strong>Next movie night</strong> · Date and film to be announced.</p><?php endif; ?>
+        <?php if ($viewer['role'] === 'organiser'): ?><a href="movie-night.php">Manage the announcement</a><?php endif; ?>
+        </aside>
         </div>
         <?php
     }

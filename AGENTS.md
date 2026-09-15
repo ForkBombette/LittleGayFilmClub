@@ -70,12 +70,12 @@ Exercise: sign in, drag a film across another and watch totals before releasing.
 ## Future non-priority features
 
 - Final polish: a non-interactive fake client-side AI commentator blob, reacting to events with canned sarcastic comments. No actual AI, API or network requests. Defer until after core work.
-- Movie flyout discussions: optional nominator pitch plus at most one comment per user per movie; users can edit/delete their own comment. Discussions attach to movies and persist across elections. No priority change.
+- Movie flyout discussions are implemented: optional nominator pitch plus one editable/deletable comment per member per movie, persisting across elections.
 - Vertical colour-coded bars and the deliberately meaningless trend line/index are implemented in the live round chart. The index is decorative only and cannot affect RCV results. Future fake-AI remarks about the trend remain parked.
 
 ## Movie cards and mystery nominations
 
-Cards show posters when available and neutral artwork otherwise. Details opens a native modal flyout (Escape closes it). Movie search/import is available when configured; one-comment-per-user discussions remain future work.
+Cards show posters when available and neutral artwork otherwise. Details opens a native modal flyout (Escape closes it). Movie search/import is available when configured; one-comment-per-user discussions are available in the shared flyout.
 
 Run `php db/migrate.php` once when upgrading an existing database; this adds fields without replacing movies, elections or ballot revisions. Fresh `db/init.php` databases include the fields (init still resets the database). Test with `php tests/movies_test.php` and `npm test` in frontend.
 
@@ -87,7 +87,7 @@ Reveal ownership is checked on the server against the signed-in member, includin
 
 ## Browsing beyond the ballot
 
-Collapsed Not in this election and Watched films lists sit beneath the ballot, with counts and empty states. Active films outside the election snapshot appear in the first; watched films outside it appear in the second. Snapshot membership takes precedence if a film’s status changes mid-election, so it stays on the ballot without duplication. Removed films are omitted. Both lists use the shared detail flyout and server-filtered mystery data. Browse-only films never enter rankings or RCV candidates. Reviews/comments remain future work and will use these same movie details. No database migration is needed.
+Collapsed Not in this election and Watched films lists sit beneath the ballot, with counts and empty states. Active films outside the election snapshot appear in the first; watched films outside it appear in the second. Snapshot membership takes precedence if a film’s status changes mid-election, so it stays on the ballot without duplication. Removed films are omitted. Both lists use the shared detail flyout and server-filtered mystery data. Browse-only films never enter rankings or RCV candidates. Comments are now available in these same movie details. No database migration is needed.
 
 ## Election lifecycle
 
@@ -205,7 +205,7 @@ All signed-in pages share four navigation areas: Vote & results, Films, Election
 
 Long nominations, watched and member pages have On this page shortcuts. Member forms use native disclosures, opening automatically after a rejected edit so the entered values stay visible. Keyboard users can skip the shared navigation and open disclosures with standard controls. Layout and navigation wrap on narrow screens without JavaScript. The existing ballot preview, graph, round tables and snapshot behaviour remain in place.
 
-Validation: PHP lint for the changed pages; existing auth, members and nominations suites; isolated organiser/member HTTP checks across all signed-in views, including rejected member edits; desktop and phone-width browser checks for navigation and voting. No migration or frontend build is required. Fake AI and movie discussions remain parked; duplicate watched-film entries remain documented in BUGS.md.
+Validation: PHP lint for the changed pages; existing auth, members and nominations suites; isolated organiser/member HTTP checks across all signed-in views, including rejected member edits; desktop and phone-width browser checks for navigation and voting. No migration or frontend build is required. Fake AI remains parked; duplicate watched-film entries remain documented in BUGS.md.
 
 ## Catalogue details and vertical round graph
 
@@ -215,4 +215,26 @@ The live draft chart now uses vertical bars with stable film colours and positio
 
 The dashed Club trend line and index are deliberately unscientific, derived independently of ballots and vote totals. They never feed into the RCV engine. Exact counts, elimination states and transfer explanations still come from the existing round data. A final surviving candidate is labelled as winner without inventing a further tally.
 
-Validation: npm test in frontend (including replay cancellation, fixed scale, final survivor and decorative-trend independence), PHP movie tests, and isolated desktop/mobile browser checks for catalogue details, mystery filtering, graph labels and live draft dragging. Run npm run build in frontend after changing TypeScript; no database migration is needed. Broader clickable Title (year) links across other lists and historical results remain a follow-up consistency task.
+Validation: npm test in frontend (including replay cancellation, fixed scale, final survivor and decorative-trend independence), PHP movie tests, and isolated desktop/mobile browser checks for catalogue details, mystery filtering, graph labels and live draft dragging. Run npm run build in frontend after changing TypeScript; no database migration is needed. Clickable Title (year) links now extend across lists and historical results.
+
+## Film details and discussions
+
+Film titles are consistently displayed as Title (year), omitting unknown or hidden years. Titles in ballots, graph/round results, nomination lists, watched history, removal requests and election history open the shared detail flyout. Native film selectors keep their normal selection behaviour, with a separate Details of selected film button. Edit actions are separate from reading details.
+
+The flyout retains the optional nominator pitch and adds one comment per member per movie (up to 2,000 characters). Members can save, edit or delete only their own comment; organisers have no moderation override. Comments belong to the movie ID and survive watching, removal, election closure and new elections. Deactivated members’ existing comments remain visible. Duplicate movie identities remain the separate deferred issue in BUGS.md.
+
+Opening a flyout fetches public film details and comments without rebasing the voting page’s ballot snapshot. Comment writes require an authenticated active member and CSRF, with ownership derived from the session. A composite key enforces one comment per movie/member. Version tokens reject stale updates/deletes and simultaneous first submissions; refreshing after a conflict preserves the local draft for review. Drafts also survive switching films within the same page, but are not persisted across page reloads/navigation. Slow responses from a previous film cannot replace the current discussion. Comments are plain text and public to the club; mystery metadata remains filtered by Movies::publicView.
+
+Upgrade with php db/migrate.php (never db/init.php on an existing database), then npm run build in frontend. The additive migration creates movie_comments; it does not modify elections, ballots, nominations or removal decisions. Fresh databases include the table. Validate with php tests/comments_test.php and npm test in frontend, plus the existing PHP suites. Browser checks should cover a member’s own save/edit/delete, a competing edit in another tab, stale drafts, mystery films, and details from watched and historical results.
+
+## Next movie night announcements
+
+A shared banner on signed-in pages shows the announced date and film, distinguishing an election winner from a direct organiser choice. Vote & results → Next movie night lets organisers announce an election winner, choose a catalogue film directly, change only the date, or clear the banner. Existing election controls also accept an optional movie-night date when closing: with a date they close and announce; without one they retain the previous close-only behaviour. A closed, non-cancelled election can be announced later. An election with no winner cannot be announced.
+
+A direct choice replaces the announcement and cancels the currently open election in the same BEGIN IMMEDIATE transaction. Its status becomes closed and an election_cancellations record distinguishes cancellation from a completed vote. Exact ballot revisions and the tally at cancellation are retained for reference, with cancellation explicitly labelled in election/results/history views. Cancelled elections cannot subsequently supply a democratic announcement. New ballot submissions are rejected after cancellation. Direct scheduling does not change film voting status, including for watched/removed catalogue entries; it does not reinstate them in the nomination pool.
+
+Announcements are independent of watched records, film eligibility and mystery reveals. Date-only changes preserve the original selection source and do not cancel voting. Clear the announcement when no longer needed; clearing never reopens an election or marks a film watched. Past dates are labelled Last announced movie night rather than presented as upcoming. New dates must be today or later in Europe/London. Names/years/posters/synopses continue to use public mystery filtering.
+
+Writes require an active organiser and CSRF. Submitted announcement and open-election versions are checked under the write lock, so stale forms cannot overwrite a newer plan or cancel an election opened since page load. Announcement records are retained as an audit trail, including replacements and clearing. A winner announcement freezes the result and creates the plan atomically; failure rolls both back. Elections::closeInTransaction is an internal composition method and must only be called while the caller holds the existing BEGIN IMMEDIATE transaction.
+
+Upgrade with php db/migrate.php; the additive movie-nights.sql migration creates movie_night_announcements and election_cancellations. Do not run db/init.php on an existing database. No frontend build is needed. Tests: php tests/movie_nights_test.php plus existing PHP suites; isolated HTTP/browser checks cover democratic closure, a direct override with cancellation, stale submissions, permissions, CSRF and mobile banner layout.

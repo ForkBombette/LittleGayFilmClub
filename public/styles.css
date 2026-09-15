@@ -150,3 +150,17 @@ form + form { margin-top: 1rem; }
 .catalogue-heading small { display: block; font-size: .8rem; font-weight: 400; color: var(--muted); margin-top: .3rem; }
 .catalogue-movie .movie-art { width: 72px; height: 104px; flex-basis: 72px; }
 @media (prefers-reduced-motion: reduce) { .chart-columns .chart-bar { transition: none; } }
+
+.movie-discussion { padding: 1rem 0 0; border: 0; border-top: 1px solid var(--line); margin-top: 1.5rem; }
+.film-comment { padding: .8rem 0; border-bottom: 1px solid var(--line); }
+.film-comment h4 { margin: 0; }
+.film-comment p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .5rem 0; }
+.film-comment small { color: var(--muted); }
+#comment-form { margin-top: 1rem; gap: .6rem; }
+#comment-body { width: 100%; box-sizing: border-box; font: inherit; padding: .5rem; }
+#comment-message { white-space: normal; }
+
+.movie-night-banner { margin-top: 1rem; padding: .9rem 1.1rem; border: 1px solid #cbbbda; border-left: 4px solid var(--accent); border-radius: .4rem; background: #fff; }
+.movie-night-banner p { margin: .2rem 0; }
+.movie-night-banner > a { display: inline-block; margin-top: .35rem; font-size: .85rem; }
+#chosen-film p { white-space: pre-wrap; overflow-wrap: anywhere; }

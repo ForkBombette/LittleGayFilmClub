@@ -34,7 +34,7 @@ class Element {
   replaceChildren() { this.children = []; this.textContent = ''; }
   attributes = {};
   setAttribute(name, value) { this.attributes[name] = value; }
-  get text() { return [this.textContent, ...this.children.map(child => child.text)].join(' '); }
+  get text() { return [this.textContent, ...this.children.map(child => child.text)].join(''); }
 }
 globalThis.document = { createElement: () => new Element(), createElementNS: () => new Element() };
 const movies = [{id: 1, title: '<Film & one>'}, {id: 2, title: 'Two'}, {id: 3, title: 'Three'}];

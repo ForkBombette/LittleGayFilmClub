@@ -22,7 +22,7 @@ final class BallotHistory
             $movies = [];
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $movie) {
                 $public = Movies::publicView($movie);
-                $movies[$public['id']] = $public['title'];
+                $movies[$public['id']] = FilmUi::label($public);
             }
             $final = null;
             $frozenIds = null;
@@ -58,10 +58,11 @@ final class BallotHistory
                 $steps[] = $revision + ['version' => $versions[$user], 'voters' => count($ballots),
                     'result' => Rcv::calculate(array_values($ballots), $candidates)];
             }
+            $cancelled = MovieNights::cancelled($pdo, $electionId);
             $pdo->commit();
             return ['election' => $election, 'movies' => $movies, 'candidates' => $candidates,
                 'removed' => array_values(array_diff(array_keys($movies), $candidates)),
-                'steps' => $steps, 'final' => $final];
+                'steps' => $steps, 'final' => $final, 'cancelled' => $cancelled];
         } catch (\Throwable $error) {
             $pdo->rollBack();
             throw $error;

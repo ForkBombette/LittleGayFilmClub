@@ -50,8 +50,8 @@ $mine = array_values(array_filter($movies, static fn(array $movie): bool => $mov
 </section><?php endif; ?>
 <section id="your-nominations"><h2>Your nominations (<?= count($mine) ?>)</h2>
 <?php if (!$mine): ?><p>You haven’t nominated any films yet.</p><?php else: ?>
-<ul><?php foreach ($mine as $movie): ?><li><a href="edit-movie.php?movieId=<?= $movie['id'] ?>"><?= Web::escape($movie['title']) ?></a><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></li><?php endforeach; ?></ul>
-<p>Select a film to edit its details and pitch. Mystery reveals are separate, in the catalogue below.</p>
+<ul><?php foreach ($mine as $movie): ?><li><?= LGFC\FilmUi::movie($movie) ?> · <a href="edit-movie.php?movieId=<?= $movie['id'] ?>">Edit</a><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></li><?php endforeach; ?></ul>
+<p>Select a film to read its details and discussion; use Edit to change your nomination. Mystery reveals are separate, in the catalogue below.</p>
 <?php endif; ?></section>
 <section id="find-film"><h2>Find a film</h2>
 <?php if (LGFC\MovieMetadata::configured()->available()): ?>

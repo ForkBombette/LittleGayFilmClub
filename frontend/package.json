@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node test/rcv.test.js && node --test test/preview.test.js test/removals.test.js test/metadata.test.js"
+    "test": "npm run build && node test/rcv.test.js && node --test test/preview.test.js test/removals.test.js test/metadata.test.js test/comments.test.js"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

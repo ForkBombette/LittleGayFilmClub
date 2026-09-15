@@ -34,14 +34,14 @@ $films=array_map([Movies::class,'publicView'],$eligible);usort($films,static fn(
 <section><h2>Propose removal</h2>
 <?php if (!$films): ?><p>No films are available for a new removal request.</p><?php else: ?>
 <form method="post" class="nomination-form"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="support" value="1">
-<label>Film <select name="movieId" required><option value="">Choose a film…</option><?php foreach($films as $film): ?><option value="<?= $film['id'] ?>"><?= Web::escape($film['title']) ?></option><?php endforeach; ?></select></label>
+<label>Film <select name="movieId" id="removal-film-select" required><option value="">Choose a film…</option><?php foreach($films as $film): ?><option value="<?= $film['id'] ?>"><?= Web::escape(LGFC\FilmUi::label($film)) ?></option><?php endforeach; ?></select></label><button type="button" data-film-select="removal-film-select" aria-haspopup="dialog">Details of selected film</button>
 <label>Reason <textarea name="reason" required maxlength="2000" rows="3"></textarea></label><p>Your reason is public to the club. Keep mystery spoilers out of it.</p><button>Propose and support removal</button></form>
 <?php endif; ?></section>
 <section><h2>Requests and decisions</h2>
 <?php if (!$requests): ?><p>No removal requests yet.</p><?php endif; ?>
 <?php foreach($requests as $request): $film=$request['movie']; ?>
-<article class="pool-movie"><h3><?= Web::escape($film['title']) ?></h3><p><?= Web::escape($request['reason']) ?></p>
+<article class="pool-movie"><h3><?= LGFC\FilmUi::movie($film) ?></h3><p><?= Web::escape($request['reason']) ?></p>
 <?php if($request['passed_at']!==null): ?><p>Removed · <?= (int)$request['support_at_pass'] ?> supporters; <?= (int)$request['threshold_at_pass'] ?> needed when passed.</p>
 <?php else: ?><p><?= $request['support'] ?> supporters · <?= $needed ?> needed.</p><p>Your response: <?= $request['my_vote']===null?'Not voted':((int)$request['my_vote']===1?'Support removal':'Keep film') ?>.</p>
 <form method="post"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="movieId" value="<?= $film['id'] ?>"><button name="support" value="1">Support removal</button> <button name="support" value="0">Keep film</button></form>
-<?php endif; ?></article><?php endforeach; ?></section></main></body></html>
+<?php endif; ?></article><?php endforeach; ?></section></main><?php require dirname(__DIR__) . '/src/movie-dialog.php'; ?></body></html>

@@ -1,3 +1,4 @@
+import { setupComments } from './movie-comments.js';
 export type Movie = {
   id: number;
   title: string;
@@ -10,7 +11,10 @@ export type Movie = {
   revealed: boolean;
 };
 
-export function setupMovieDetails(movies: Movie[]): void {
+let initialized = false;
+export function setupMovieDetails(movies: Movie[] = []): void {
+  if (initialized) return;
+  initialized = true;
   const dialog = document.querySelector<HTMLDialogElement>('#movie-dialog')!;
   const title = document.querySelector<HTMLElement>('#movie-dialog-title')!;
   const meta = document.querySelector<HTMLElement>('#movie-dialog-meta')!;
@@ -19,13 +23,9 @@ export function setupMovieDetails(movies: Movie[]): void {
   const mystery = document.querySelector<HTMLElement>('#movie-dialog-mystery')!;
   const art = document.querySelector<HTMLElement>('#movie-dialog-art')!;
   document.querySelector('#close-movie-dialog')!.addEventListener('click', () => dialog.close());
-  document.querySelector('main')!.addEventListener('click', event => {
-    const button = (event.target as HTMLElement).closest<HTMLElement>('[data-details]');
-    if (!button) return;
-    const movie = movies.find(item => item.id === Number(button.dataset.details));
-    if (!movie) return;
-    title.textContent = movie.title;
-    meta.textContent = movie.is_mystery ? 'Mystery film' : [movie.release_year, movie.revealed ? 'Mystery revealed' : ''].filter(Boolean).join(' · ');
+  function showMovie(movie: Movie) {
+    title.textContent = movie.title + (movie.release_year ? ` (${movie.release_year})` : '');
+    meta.textContent = movie.is_mystery ? 'Mystery film' : (movie.revealed ? 'Mystery revealed' : '');
     pitch.textContent = movie.nomination_pitch || 'No pitch yet.';
     synopsis.hidden = movie.is_mystery;
     synopsis.querySelector('p')!.textContent = movie.summary || 'No synopsis added yet.';
@@ -39,7 +39,25 @@ export function setupMovieDetails(movies: Movie[]): void {
       image.addEventListener('error', () => { art.textContent = '▶'; }, { once: true });
       art.appendChild(image);
     } else art.textContent = movie.is_mystery ? '?' : '▶';
+  }
+  const openComments = setupComments(showMovie);
+  document.querySelectorAll<HTMLButtonElement>('[data-film-select]').forEach(button => {
+    const select = document.getElementById(button.dataset.filmSelect!) as HTMLSelectElement;
+    const sync = () => { button.disabled = !select.value; };
+    select.addEventListener('change', sync); sync();
+  });
+  document.querySelector('main')!.addEventListener('click', event => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>('[data-details], [data-film-select]');
+    if (!button) return;
+    const selected = button.dataset.filmSelect ? document.getElementById(button.dataset.filmSelect) as HTMLSelectElement : null;
+    const id = Number(selected ? selected.value : button.dataset.details);
+    if (!id) return;
+    const movie = movies.find(item => item.id === id);
+    title.textContent = 'Loading film…'; meta.textContent = ''; pitch.textContent = ''; art.replaceChildren();
+    synopsis.hidden = true; mystery.hidden = true;
+    if (movie) showMovie(movie);
     dialog.showModal();
+    openComments(id);
   });
   // Native dialog handles Escape, focus trapping and return to the opener.
   document.querySelectorAll<HTMLImageElement>('.movie-art img').forEach(image => {

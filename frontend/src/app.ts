@@ -1,3 +1,4 @@
+import { filmText } from './film-label.js';
 import { reconcileCandidates } from './removals.js';
 import { setupMovieDetails, type Movie } from './movie-details.js';
 import { calculateRcv } from './rcv.js';
@@ -124,7 +125,9 @@ function setupVoting(): void {
           chart.reset();
           chartContainer.replaceChildren();
           chart = createRoundChart(chartContainer, data.movies);
-          message.textContent = result.error + ' Eliminated: ' + reconciled.removed.map(movie => movie.title).join(', ') + '.';
+          const parts: Array<string | number> = [result.error + ' Eliminated: '];
+          reconciled.removed.forEach((movie, i) => { if (i) parts.push(', '); parts.push(movie.id); });
+          parts.push('.'); filmText(message, parts, reconciled.removed);
           renderSpeculative();
           if (!data.movies.length) message.textContent = 'All films have been removed. No ballot was saved.';
         }

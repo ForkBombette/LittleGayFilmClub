@@ -1,3 +1,4 @@
+import { filmText } from './film-label.js';
 import type { RcvResult } from './rcv.js';
 import { transfers } from './preview.js';
 
@@ -97,20 +98,24 @@ export function createRoundChart(container: HTMLElement, movies: Movie[]) {
       item.status.textContent = won ? 'Winner' : eliminated ? 'Eliminated this round' : count === undefined ? (round ? 'Eliminated earlier' : 'No tally') : 'Continuing';
     }
     if (!round) {
-      explanation.textContent = '';
+      explanation.replaceChildren();
+      if (result.winner !== null) filmText(summary, [result.winner, ' wins as the only eligible candidate. No round was tallied.'], movies);
     } else if (round.winner !== null) {
-      explanation.textContent = `${name(round.winner)} wins with a majority.`;
+      filmText(explanation, [round.winner, ' wins with a majority.'], movies);
     } else if (round.eliminated !== null) {
       const following = result.rounds[index + 1];
       const tied = Object.values(round.counts).filter(count => count === round.counts[round.eliminated!]).length > 1;
-      const reason = `${name(round.eliminated)} is eliminated.${tied ? ' Tied lowest; lowest candidate ID breaks the tie.' : ''}`;
-      const flows = following ? transfers(round, following) : [];
-      explanation.textContent = following
-        ? `${reason} To round ${index + 2}: ${flows.length ? flows.map(flow => `${flow.count} → ${flow.id === null ? 'exhausted' : name(flow.id)}`).join(' · ') : 'no votes to transfer'}.`
-        : `${reason} ${result.winner === null ? 'No winner.' : `${name(result.winner)} wins as the last remaining candidate; no further round is tallied.`}`;
-    } else {
-      explanation.textContent = '';
-    }
+      const parts: Array<string | number> = [round.eliminated, ` is eliminated.${tied ? ' Tied lowest; lowest candidate ID breaks the tie.' : ''}`];
+      if (following) {
+        const flows = transfers(round, following);
+        parts.push(` To round ${index + 2}: `);
+        flows.forEach((flow, i) => { if (i) parts.push(' · '); parts.push(`${flow.count} → `, flow.id ?? 'exhausted'); });
+        if (!flows.length) parts.push('no votes to transfer');
+        parts.push('.');
+      } else if (result.winner !== null) parts.push(' ', result.winner, ' wins as the last remaining candidate; no further round is tallied.');
+      else parts.push(' No winner.');
+      filmText(explanation, parts, movies);
+    } else explanation.replaceChildren();
   }
 
   function advance() {

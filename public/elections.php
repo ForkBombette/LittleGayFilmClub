@@ -20,7 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (($_POST['action'] ?? '') === 'close' && ($_POST['confirm'] ?? '') === 'yes') {
             $id = filter_var($_POST['electionId'] ?? null, FILTER_VALIDATE_INT);
             if (!$id) throw new InvalidArgumentException('Choose an election to close.');
-            Elections::close($pdo, $id);
+            $date=is_string($_POST['nightDate']??null)?$_POST['nightDate']:'';
+            if($date!=='') {
+                $expected=filter_var($_POST['expectedPlan']??null,FILTER_VALIDATE_INT);
+                if($expected===false || $expected<0) throw new InvalidArgumentException('Reload the election controls.');
+                LGFC\MovieNights::announce($pdo,$viewer['id'],'election',$id,$date,$expected,$id);
+            } else Elections::close($pdo, $id);
         } else throw new InvalidArgumentException('Confirm that you want to close voting.');
         header('Location: index.php?electionId=' . $id, true, 303);
         exit;
@@ -30,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Could not change the election. Please try again.';
     }
 }
-$elections = $pdo->query('SELECT * FROM elections ORDER BY id DESC')->fetchAll();
+$elections = $pdo->query('SELECT e.*, c.cancelled_at FROM elections e LEFT JOIN election_cancellations c ON c.election_id=e.id ORDER BY e.id DESC')->fetchAll();
+$planVersion = $error ? (int)($_POST['expectedPlan']??0) : LGFC\MovieNights::latestId($pdo);
 $open = array_values(array_filter($elections, static fn(array $e): bool => $e['status'] === 'open'));
 $pool = array_map([Movies::class, 'publicView'], $pdo->query("SELECT * FROM movies WHERE status = 'active'")->fetchAll());
 usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']));
@@ -45,6 +51,9 @@ usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['t
 <section><h2><?= Web::escape($election['name']) ?></h2><p>Voting is open. Submitted ballots: <?= count(Elections::ballots($pdo, (int) $election['id'])) ?>.</p>
 <p>Closing freezes the final result and stops further ballot submissions. It does not reveal mystery films or mark any film as watched.</p>
 <form method="post"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="close"><input type="hidden" name="electionId" value="<?= (int) $election['id'] ?>">
+<input type="hidden" name="expectedPlan" value="<?= $planVersion ?>">
+<label>Movie night date (optional) <input type="date" name="nightDate" value="<?= Web::escape(is_string($_POST['nightDate']??null)?$_POST['nightDate']:'') ?>"></label>
+<p>Set a date to announce the winner in the banner as voting closes. Leave it blank to close without changing the announcement. <a href="movie-night.php">Choose a film directly instead</a>.</p>
 <label><input type="checkbox" name="confirm" value="yes" required> Close voting permanently for this election.</label> <button>Close election</button></form>
 <p><a href="index.php?electionId=<?= (int) $election['id'] ?>">Return to this ballot</a></p></section>
 <?php endforeach; ?>
@@ -53,11 +62,11 @@ usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['t
 <?php if ($pool): ?>
 <form method="post" class="nomination-form"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="open">
 <label>Election name <input name="name" required maxlength="200" value="<?= Web::escape(is_string($_POST['name'] ?? null) ? $_POST['name'] : '') ?>" placeholder="Next movie night"></label><button>Open election</button></form>
-<details><summary>Films in the current pool (<?= count($pool) ?>)</summary><ul><?php foreach ($pool as $movie): ?><li><?= Web::escape($movie['title']) ?><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></li><?php endforeach; ?></ul></details>
+<details><summary>Films in the current pool (<?= count($pool) ?>)</summary><ul><?php foreach ($pool as $movie): ?><li><?= LGFC\FilmUi::movie($movie) ?><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></li><?php endforeach; ?></ul></details>
 <?php else: ?><p>No active films yet. <a href="movies.php">Nominate a film</a> before opening an election.</p><?php endif; ?>
 </section>
 <?php endif; ?>
 <?php endif; ?>
 <section id="all-elections"><h2>All elections</h2><?php if (!$elections): ?><p>No elections yet.</p><?php endif; ?>
-<ul class="election-history"><?php foreach ($elections as $election): ?><li><a href="index.php?electionId=<?= (int) $election['id'] ?>"><?= Web::escape($election['name']) ?></a> · <?= $election['status'] === 'open' ? 'Voting open' : 'Closed — final result' ?><?php if ($election['closed_at']): ?> · <?= Web::escape($election['closed_at']) ?> UTC<?php endif; ?> · <a href="ballot-history.php?electionId=<?= (int) $election['id'] ?>">Ballot history</a></li><?php endforeach; ?></ul></section>
-</main></body></html>
+<ul class="election-history"><?php foreach ($elections as $election): ?><li><a href="index.php?electionId=<?= (int) $election['id'] ?>"><?= Web::escape($election['name']) ?></a> · <?= $election['cancelled_at'] ? 'Cancelled — archived tally' : ($election['status'] === 'open' ? 'Voting open' : 'Closed — final result') ?><?php if ($election['closed_at']): ?> · <?= Web::escape($election['closed_at']) ?> UTC<?php endif; ?> · <a href="ballot-history.php?electionId=<?= (int) $election['id'] ?>">Ballot history</a></li><?php endforeach; ?></ul></section>
+</main><?php require dirname(__DIR__) . '/src/movie-dialog.php'; ?></body></html>

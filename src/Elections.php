@@ -102,16 +102,20 @@ final class Elections
 
     public static function close(PDO $pdo, int $id): void
     {
-        self::write($pdo, static function () use ($pdo, $id): void {
-            $stmt = $pdo->prepare('SELECT status FROM elections WHERE id = ?');
-            $stmt->execute([$id]);
-            $status = $stmt->fetchColumn();
-            if ($status === false) throw new InvalidArgumentException('Election not found.');
-            if ($status === 'closed') return; // Double-click/retry keeps the original snapshot.
-            self::freeze($pdo, $id);
-            $stmt = $pdo->prepare("UPDATE elections SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE id = ?");
-            $stmt->execute([$id]);
-        });
+        self::write($pdo, static fn() => self::closeInTransaction($pdo, $id));
+    }
+
+    /** Internal composition point: caller must hold the shared BEGIN IMMEDIATE write transaction. */
+    public static function closeInTransaction(PDO $pdo, int $id): void
+    {
+        $stmt = $pdo->prepare('SELECT status FROM elections WHERE id = ?');
+        $stmt->execute([$id]);
+        $status = $stmt->fetchColumn();
+        if ($status === false) throw new InvalidArgumentException('Election not found.');
+        if ($status === 'closed') return;
+        self::freeze($pdo, $id);
+        $stmt = $pdo->prepare("UPDATE elections SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE id = ?");
+        $stmt->execute([$id]);
     }
 
     public static function submit(PDO $pdo, int $id, int $userId, array $ranking): int
@@ -124,7 +128,7 @@ final class Elections
             $stmt->execute([$id]);
             $status = $stmt->fetchColumn();
             if ($status === false) throw new InvalidArgumentException('Election not found.');
-            if ($status !== 'open') throw new DomainException('Voting has closed. Your draft was not saved. Reload to view the final result.');
+            if ($status !== 'open') throw new DomainException('Voting has ended. Your draft was not saved. Reload to view the election status and results.');
             $stmt = $pdo->prepare('SELECT id FROM users WHERE id = ? AND is_active = 1');
             $stmt->execute([$userId]);
             if ($stmt->fetchColumn() === false) throw new InvalidArgumentException('Choose an active voter.');
