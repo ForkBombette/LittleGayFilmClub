@@ -276,3 +276,7 @@ Upgrade with php db/migrate.php; the additive movie-nights.sql migration creates
 ## Hosting at the domain root
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the cPanel layout, safe data transfer and update procedure. Run ./package-hosting.ps1 locally to test/build and create a code-only upload ZIP. The domain document root is the project's public directory; compiled browser assets are published into public/assets/js by npm run build.
+
+## The AI consultant
+
+The open voting page has acquired LGFC AI: a small sarcastic commentator reacting to completed ballot moves and submission outcomes. It is entirely client-side canned commentary, with no AI service or API. It never changes votes, calculations or the draft snapshot. Comments live in frontend/src/commentator.ts if the club wishes to make its consultant worse. Run npm test in frontend and build/upload the browser assets and styles; no migration is required.

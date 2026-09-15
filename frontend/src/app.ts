@@ -1,3 +1,4 @@
+import { createCommentator, draftReaction } from './commentator.js';
 import { filmText } from './film-label.js';
 import { reconcileCandidates } from './removals.js';
 import { setupMovieDetails, type Movie } from './movie-details.js';
@@ -32,6 +33,12 @@ function setupVoting(): void {
   speculative.before(chartContainer);
   let chart = createRoundChart(chartContainer, data.movies);
 
+  const commentator = createCommentator(data.movies);
+  commentator.react({ type: 'welcome' });
+  let gesture: { ranking: number[]; result: ReturnType<typeof calculateRcv>; movieId: number } | null = null;
+  function draftResult() {
+    return calculateRcv(previewBallots(data.committedBallots, data.viewer.id, currentRanking()), data.movies.map(movie => Number(movie.id)));
+  }
   let dragging: HTMLElement | null = null;
   let votingClosed = false;
 
@@ -70,11 +77,17 @@ function setupVoting(): void {
     if (votingClosed) { event.preventDefault(); return; }
     const target = (event.target as HTMLElement).closest<HTMLElement>('li[data-movie-id]');
     if (!target) return;
+    gesture = { ranking: currentRanking(), result: draftResult(), movieId: Number(target.dataset.movieId) };
     dragging = target;
     target.classList.add('dragging');
   });
 
   list.addEventListener('dragend', () => {
+    if (gesture && !votingClosed) {
+      const reaction = draftReaction(gesture.ranking, currentRanking(), gesture.result, draftResult(), gesture.movieId);
+      if (reaction) commentator.react(reaction);
+    }
+    gesture = null;
     dragging?.classList.remove('dragging');
     dragging = null;
     renderSpeculative();
@@ -114,7 +127,10 @@ function setupVoting(): void {
       const result = await response.json();
       if (!response.ok) {
         message.textContent = result.error ?? 'Ballot save failed.';
+        commentator.react({ type: 'failed' });
         if (result.code === 'candidates_changed') {
+          gesture = null;
+          commentator.react({ type: 'removed' });
           const reconciled = reconcileCandidates(data.movies, currentRanking(), result.candidateIds);
           data.movies = reconciled.movies;
           for (const li of [...list.querySelectorAll<HTMLElement>('li[data-movie-id]')]) {
@@ -133,17 +149,21 @@ function setupVoting(): void {
         }
         if (result.code === 'election_closed') {
           votingClosed = true;
+          gesture = null;
+          commentator.react({ type: 'closed' });
           chart.reset();
           speculative.textContent = 'Voting has closed. Reload to view the final result.';
         }
         return;
       }
 
+      commentator.react({ type: 'submitted' });
       data.committedBallots[String(userId)] = submittedRanking;
       message.textContent = `Ballot revision ${result.revisionId} committed. Reload to refresh the authoritative result.`;
       renderSpeculative();
     } catch {
       message.textContent = 'Ballot save failed. Please try again.';
+      commentator.react({ type: 'failed' });
     } finally {
       submitButton.disabled = votingClosed || data.movies.length === 0;
     }

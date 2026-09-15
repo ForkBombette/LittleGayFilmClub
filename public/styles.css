@@ -164,3 +164,11 @@ form + form { margin-top: 1rem; }
 .movie-night-banner p { margin: .2rem 0; }
 .movie-night-banner > a { display: inline-block; margin-top: .35rem; font-size: .85rem; }
 #chosen-film p { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* The club's unsolicited consultant. No controls, focus targets or pointer interception. */
+body.has-commentator { padding-bottom: 12rem; }
+.ai-commentator { position: fixed; right: 1rem; bottom: 1rem; z-index: 5; box-sizing: border-box; width: min(21rem, calc(100% - 2rem)); padding: 1rem 1rem 1rem 4.5rem; background: #f3eafa; color: #392b4d; border: 1px solid #bfa7d1; border-radius: 1.2rem 1.2rem .3rem 1.2rem; box-shadow: 0 .25rem 1rem #30204022; pointer-events: none; font-size: .9rem; overflow-wrap: anywhere; }
+.ai-commentator p { margin: .4rem 0 0; line-height: 1.4; }
+.ai-blob { position: absolute; left: .9rem; top: 1rem; display: grid; place-items: center; width: 2.7rem; height: 3rem; border-radius: 45% 55% 35% 65%; background: #785698; color: white; font-size: 1.25rem; transform: rotate(-8deg); }
+@media (max-width: 600px) { .ai-commentator { right: .5rem; bottom: .5rem; width: calc(100% - 1rem); } }
+@media print { .ai-commentator { display: none; } body.has-commentator { padding-bottom: 0; } }

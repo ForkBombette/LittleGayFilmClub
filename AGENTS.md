@@ -69,9 +69,9 @@ Exercise: sign in, drag a film across another and watch totals before releasing.
 
 ## Future non-priority features
 
-- Final polish: a non-interactive fake client-side AI commentator blob, reacting to events with canned sarcastic comments. No actual AI, API or network requests. Defer until after core work.
+- The fake client-side AI commentator is implemented on the open ballot: canned event-driven sarcasm, no actual AI, API or network requests. Additional event coverage remains optional polish.
 - Movie flyout discussions are implemented: optional nominator pitch plus one editable/deletable comment per member per movie, persisting across elections.
-- Vertical colour-coded bars and the deliberately meaningless trend line/index are implemented in the live round chart. The index is decorative only and cannot affect RCV results. Future fake-AI remarks about the trend remain parked.
+- Vertical colour-coded bars and the deliberately meaningless trend line/index are implemented in the live round chart. The index is decorative only and cannot affect RCV results. The commentator includes occasional canned remarks about the trend.
 
 ## Movie cards and mystery nominations
 
@@ -205,7 +205,7 @@ All signed-in pages share four navigation areas: Vote & results, Films, Election
 
 Long nominations, watched and member pages have On this page shortcuts. Member forms use native disclosures, opening automatically after a rejected edit so the entered values stay visible. Keyboard users can skip the shared navigation and open disclosures with standard controls. Layout and navigation wrap on narrow screens without JavaScript. The existing ballot preview, graph, round tables and snapshot behaviour remain in place.
 
-Validation: PHP lint for the changed pages; existing auth, members and nominations suites; isolated organiser/member HTTP checks across all signed-in views, including rejected member edits; desktop and phone-width browser checks for navigation and voting. No migration or frontend build is required. Fake AI remains parked; duplicate watched-film entries remain documented in BUGS.md.
+Validation: PHP lint for the changed pages; existing auth, members and nominations suites; isolated organiser/member HTTP checks across all signed-in views, including rejected member edits; desktop and phone-width browser checks for navigation and voting. No migration or frontend build is required. Duplicate watched-film entries remain documented in BUGS.md.
 
 ## Catalogue details and vertical round graph
 
@@ -242,3 +242,11 @@ Upgrade with php db/migrate.php; the additive movie-nights.sql migration creates
 ## Hosting and browser assets
 
 The production domain document root is /home/geexnet/littlegayfilmclub/public. Keep private PHP, database and migrations in sibling directories. Browser modules use page-relative assets/js URLs, supporting both root hosting and existing /public/ dev URLs. npm run build retains frontend/dist for tests and copies browser JavaScript into public/assets/js without source maps. package-hosting.ps1 runs frontend checks and creates a code-only ZIP with dotfiles, excluding live data, secrets and local settings. Follow DEPLOYMENT.md; never overwrite the live database during code updates or run db/init.php on existing data.
+
+## LGFC AI commentator
+
+The open-ballot page now includes a non-interactive corner blob labelled LGFC AI. Its comments are selected locally from event-specific phrase banks in frontend/src/commentator.ts; no model, API, network request or persistence is involved. It reacts once per completed changed drag, prioritising a changed draft winner or elimination order over promotion/demotion. It also reacts to successful submissions, failed saves, candidate reconciliation and voting closure detected on submit. Existing status/error messages remain authoritative. It does not observe other members in real time or rebase the page-load snapshot.
+
+Only public bootstrap film labels enter commentary, using textContent. No user names or private mystery metadata are requested. Phrase selection avoids immediate repetition. The blob takes no pointer events or keyboard focus and does not announce itself as a live region. No automatic animation or idle timer is used. The final page content has bottom clearance so it can scroll above the fixed panel. It is shown only on an open ballot; extending it to other club events remains future polish.
+
+Tests: npm test in frontend, including gesture classification, result immutability, safe labels and no network use. Build with npm run build; deploy the updated assets/js modules and styles.css using the normal package. No database migration.
