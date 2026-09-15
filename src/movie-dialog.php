@@ -20,4 +20,4 @@
         </form>
     </section>
 </dialog>
-<script type="module" src="../frontend/dist/details-page.js"></script>
+<script type="module" src="assets/js/details-page.js"></script>

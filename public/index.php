@@ -179,6 +179,6 @@ $bootstrap = [
 </main>
 <?php require dirname(__DIR__) . '/src/movie-dialog.php'; ?>
 <script>window.LGFC_BOOTSTRAP = <?= json_encode($bootstrap, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;</script>
-<script type="module" src="../frontend/dist/app.js"></script>
+<script type="module" src="assets/js/app.js"></script>
 </body>
 </html>

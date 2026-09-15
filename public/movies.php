@@ -91,4 +91,4 @@ $mine = array_values(array_filter($movies, static fn(array $movie): bool => $mov
 </section></main>
 <?php require dirname(__DIR__) . '/src/movie-dialog.php'; ?>
 <script type="application/json" id="catalogue-data"><?= json_encode($movies, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
-<script type="module" src="../frontend/dist/nomination.js"></script></body></html>
+<script type="module" src="assets/js/nomination.js"></script></body></html>

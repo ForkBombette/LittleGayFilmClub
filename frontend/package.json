@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node publish-assets.mjs",
     "test": "npm run build && node test/rcv.test.js && node --test test/preview.test.js test/removals.test.js test/metadata.test.js test/comments.test.js"
   },
   "devDependencies": {

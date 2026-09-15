@@ -272,3 +272,7 @@ Announcements are independent of watched records, film eligibility and mystery r
 Writes require an active organiser and CSRF. Submitted announcement and open-election versions are checked under the write lock, so stale forms cannot overwrite a newer plan or cancel an election opened since page load. Announcement records are retained as an audit trail, including replacements and clearing. A winner announcement freezes the result and creates the plan atomically; failure rolls both back. Elections::closeInTransaction is an internal composition method and must only be called while the caller holds the existing BEGIN IMMEDIATE transaction.
 
 Upgrade with php db/migrate.php; the additive movie-nights.sql migration creates movie_night_announcements and election_cancellations. Do not run db/init.php on an existing database. No frontend build is needed. Tests: php tests/movie_nights_test.php plus existing PHP suites; isolated HTTP/browser checks cover democratic closure, a direct override with cancellation, stale submissions, permissions, CSRF and mobile banner layout.
+
+## Hosting at the domain root
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the cPanel layout, safe data transfer and update procedure. Run ./package-hosting.ps1 locally to test/build and create a code-only upload ZIP. The domain document root is the project's public directory; compiled browser assets are published into public/assets/js by npm run build.
