@@ -71,7 +71,7 @@ Exercise: sign in, drag a film across another and watch totals before releasing.
 
 - Final polish: a non-interactive fake client-side AI commentator blob, reacting to events with canned sarcastic comments. No actual AI, API or network requests. Defer until after core work.
 - Movie flyout discussions: optional nominator pitch plus at most one comment per user per movie; users can edit/delete their own comment. Discussions attach to movies and persist across elections. No priority change.
-- Final visual polish / troll feature: colour-coded vertical bars with a deliberately meaningless trend line overlaid, or the closest practical effect. It may display a fictional trend value and trigger canned remarks from the fake AI commentator. This is decorative only: it must not affect RCV calculations, totals, thresholds or results. Keep parked until after core work.
+- Vertical colour-coded bars and the deliberately meaningless trend line/index are implemented in the live round chart. The index is decorative only and cannot affect RCV results. Future fake-AI remarks about the trend remain parked.
 
 ## Movie cards and mystery nominations
 
@@ -198,3 +198,21 @@ Explore ballot history from an election’s result or the All elections list. Al
 History reads a consistent database snapshot and uses the existing PHP RCV engine. Calculations use that election’s remaining candidates throughout: if films were removed, the page explicitly describes these as recalculations rather than exact pre-removal outcomes. Precise removal/ballot event replay remains future work because existing timestamps do not establish an order within a second. Closed history ends at each voter’s frozen revision, and the stored final result remains authoritative. Names use current member names and public movie labels; hidden mysteries stay hidden. No schema migration is needed.
 
 Tests: `php tests/history_test.php` plus the existing election, removal and movie tests. Exercise with two members and several revisions, step back to zero, inspect a removed film’s original ranking, and compare a closed election with its frozen result. Animation remains parked.
+
+## Navigation and presentation
+
+All signed-in pages share four navigation areas: Vote & results, Films, Elections, and Club. Films contains nominations, watched records and removal votes; Elections contains the election list, controls and ballot history; Club contains the account, credits and organiser-only member directory. The current area is highlighted, with related pages beneath it. Context-specific links retain their election or movie IDs. Navigation is rendered by `src/Navigation.php`; authentication and permissions remain enforced by each page.
+
+Long nominations, watched and member pages have On this page shortcuts. Member forms use native disclosures, opening automatically after a rejected edit so the entered values stay visible. Keyboard users can skip the shared navigation and open disclosures with standard controls. Layout and navigation wrap on narrow screens without JavaScript. The existing ballot preview, graph, round tables and snapshot behaviour remain in place.
+
+Validation: PHP lint for the changed pages; existing auth, members and nominations suites; isolated organiser/member HTTP checks across all signed-in views, including rejected member edits; desktop and phone-width browser checks for navigation and voting. No migration or frontend build is required. Fake AI and movie discussions remain parked; duplicate watched-film entries remain documented in BUGS.md.
+
+## Catalogue details and vertical round graph
+
+The film catalogue shows a poster (or neutral artwork) and clickable Title (year) when a year is known. Clicking opens the same native detail flyout used by the ballot, with pitch and synopsis. Mystery entries retain their alias, neutral artwork and hidden year/synopsis. Edit and reveal actions remain separate. The shared dialog markup lives in src/movie-dialog.php; catalogue JSON contains only Movies::publicView data.
+
+The live draft chart now uses vertical bars with stable film colours and positions, a consistent scale across rounds, and clickable film labels. Previous/Next and Replay/Pause retain their existing behaviour. Bars animate in height; reduced-motion preferences disable transitions. On narrow screens or with many candidates, only the graph scrolls horizontally. The detailed round tables remain available below.
+
+The dashed Club trend line and index are deliberately unscientific, derived independently of ballots and vote totals. They never feed into the RCV engine. Exact counts, elimination states and transfer explanations still come from the existing round data. A final surviving candidate is labelled as winner without inventing a further tally.
+
+Validation: npm test in frontend (including replay cancellation, fixed scale, final survivor and decorative-trend independence), PHP movie tests, and isolated desktop/mobile browser checks for catalogue details, mystery filtering, graph labels and live draft dragging. Run npm run build in frontend after changing TypeScript; no database migration is needed. Broader clickable Title (year) links across other lists and historical results remain a follow-up consistency task.

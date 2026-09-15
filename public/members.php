@@ -44,15 +44,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 }
 $members=$pdo->query('SELECT id,display_name,role,is_active FROM users ORDER BY is_active DESC,display_name')->fetchAll();
 ?>
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Members · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head><body><main>
-<header><?php Auth::accountBar($user); ?><h1>Members</h1><a href="index.php">Voting and results</a>
-<p>Manage names, membership and organiser permissions. Keep at least one organiser active.</p></header>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Members · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head><body><?php LGFC\Navigation::render($user, 'members.php'); ?><main id="main-content" tabindex="-1">
+<header><h1>Members</h1>
+<p>Manage names, membership and organiser permissions. Keep at least one organiser active.</p><nav class="page-jumps" aria-label="On this page"><span>On this page</span><a href="#member-directory">Member directory</a><a href="#add-member">Add a member</a></nav></header>
 <?php if($error || $notice): ?><section><p role="<?= $error?'alert':'status' ?>"><?= Web::escape($error?:$notice) ?></p>
 <?php if($link): ?><p><a href="<?= Web::escape($link) ?>">Personal sign-in link — copy link address</a></p><?php endif; ?></section><?php endif; ?>
-<section><h2>Add a member</h2><form method="post" class="nomination-form"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="create">
+<section id="add-member"><h2>Add a member</h2><form method="post" class="nomination-form"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="create">
 <label>Display name <input name="display_name" required maxlength="100" value="<?= Web::escape($error && $action==='create' && is_string($_POST['display_name']??null)?$_POST['display_name']:'') ?>"></label>
 <p>New accounts start as active members. You can give them organiser permissions below.</p><button>Add member</button></form></section>
-<section><h2>Current and inactive members</h2>
+<section id="member-directory"><h2>Current and inactive members</h2>
 <p>Inactive members cannot sign in, nominate or vote. Deactivating a member cancels their devices and unused links; reactivation needs a new link. Their existing ballots and nominations stay recorded.</p>
 <p>Active membership determines removal-vote counts. The current removal threshold is <?= Removals::threshold($pdo) ?> supporters. Membership changes affect pending requests when a response is next saved; completed decisions stay unchanged.</p>
 <p>Creating a link replaces any unused link for that member. Revoking devices and links signs them out without deactivating their membership.</p>
@@ -63,11 +63,11 @@ $members=$pdo->query('SELECT id,display_name,role,is_active FROM users ORDER BY 
         $version=is_string($_POST['version']??null)?$_POST['version']:'';
     }
 ?>
-<article class="pool-movie"><h3><?= Web::escape($member['display_name']) ?><?= (int)$member['id']===$user['id']?' · You':'' ?></h3><p><?= $member['is_active']?'Active':'Inactive' ?> · <?= Web::escape($member['role']) ?></p>
+<details class="member-entry" <?= $error && $action==='update' && (int)$target===(int)$member['id'] ? 'open' : '' ?>><summary><?= Web::escape($member['display_name']) ?><?= (int)$member['id']===$user['id']?' · You':'' ?><span><?= $member['is_active']?'Active':'Inactive' ?> · <?= Web::escape($member['role']) ?></span></summary>
 <form method="post" class="nomination-form"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="update"><input type="hidden" name="target" value="<?= (int)$member['id'] ?>"><input type="hidden" name="version" value="<?= Web::escape($version) ?>">
 <label>Display name <input name="display_name" required maxlength="100" value="<?= Web::escape($values['display_name']) ?>"></label>
 <label>Role <select name="role"><option value="member" <?= $values['role']==='member'?'selected':'' ?>>Member</option><option value="organiser" <?= $values['role']==='organiser'?'selected':'' ?>>Organiser</option></select></label>
 <label>Membership <select name="is_active"><option value="1" <?= (int)$values['is_active']===1?'selected':'' ?>>Active</option><option value="0" <?= (int)$values['is_active']===0?'selected':'' ?>>Inactive</option></select></label>
 <button>Save member</button></form>
 <form method="post"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="target" value="<?= (int)$member['id'] ?>"><?php if($member['is_active']): ?><button name="action" value="issue">Create personal link</button><?php endif; ?> <button name="action" value="revoke">Revoke devices and links</button></form>
-</article><?php endforeach; ?></section></main></body></html>
+</details><?php endforeach; ?></section></main></body></html>

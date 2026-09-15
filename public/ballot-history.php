@@ -22,8 +22,8 @@ $name = static fn(int $movieId): string => Web::escape($history['movies'][$movie
 $link = static fn(int $number): string => 'ballot-history.php?electionId=' . (int) $id . '&amp;step=' . $number;
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ballot history · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>
-<body><main>
-<header><?php Auth::accountBar($viewer); ?><h1>Ballot history</h1>
+<body><?php LGFC\Navigation::render($viewer, 'ballot-history.php'); ?><main id="main-content" tabindex="-1">
+<header><h1>Ballot history</h1>
 <nav><a href="index.php?electionId=<?= (int) $id ?>">Voting and results</a> · <a href="elections.php">All elections</a></nav>
 <p><?= Web::escape($history['election']['name']) ?> · <?= $history['election']['status'] === 'closed' ? 'Closed' : 'Voting open — reload for new submissions' ?></p>
 <p>Each submission replaces that member’s previous ballot. Revisions never give anyone an extra vote. Names and film details reflect their current public display.</p>

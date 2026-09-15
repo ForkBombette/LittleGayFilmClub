@@ -69,11 +69,11 @@ $bootstrap = [
     <title>Little Gay Film Club™</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-<main>
-    <header><?php Auth::accountBar($viewer); ?>
-        <h1>Little Gay Film Club™</h1>
-        <nav><a href="movies.php">Nominate or reveal a film</a> · <a href="elections.php">Election controls and history</a> · <a href="watched.php">Watched films</a> · <a href="removals.php">Removal votes</a> · <a href="credits.php">Credits</a></nav>
+<body><?php LGFC\Navigation::render($viewer, 'index.php'); ?>
+<main id="main-content" tabindex="-1">
+    <header>
+        <p class="eyebrow">The voting chamber</p><h1><?= $isOpen ? 'Tonight’s vote' : ($election ? 'Election result' : 'Between movie nights') ?></h1>
+
         <p><?= $election ? htmlspecialchars($election['name']) : 'Between movie nights' ?></p>
         <?php if (!$isOpen): ?><p><?= $election ? 'Voting is closed. This result is frozen.' : 'No election has opened yet. Nominate films, then open an election when ready.' ?></p><?php endif; ?>
     </header>
@@ -176,15 +176,7 @@ $bootstrap = [
     </section>
 <?php endif; ?>
 </main>
-<dialog id="movie-dialog" aria-labelledby="movie-dialog-title">
-    <button type="button" id="close-movie-dialog" aria-label="Close film details">Close ×</button>
-    <div id="movie-dialog-art" class="movie-art detail-art" aria-hidden="true"></div>
-    <h2 id="movie-dialog-title"></h2>
-    <p id="movie-dialog-meta"></p>
-    <h3>The pitch</h3><p id="movie-dialog-pitch"></p>
-    <div id="movie-dialog-synopsis"><h3>Synopsis</h3><p></p></div>
-    <p id="movie-dialog-mystery">The identity stays hidden until the nominator deliberately reveals it, even if it wins.</p>
-</dialog>
+<?php require dirname(__DIR__) . '/src/movie-dialog.php'; ?>
 <script>window.LGFC_BOOTSTRAP = <?= json_encode($bootstrap, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;</script>
 <script type="module" src="../frontend/dist/app.js"></script>
 </body>

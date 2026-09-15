@@ -49,16 +49,16 @@ function fields(array $elections, int $context, ?string $date): void { ?>
 <label>Related election (optional) <select name="election_id"><option value="">No election — chosen independently</option><?php foreach ($elections as $election): ?><option value="<?= (int) $election['id'] ?>" <?= $context === (int) $election['id'] ? 'selected' : '' ?>><?= Web::escape($election['name']) ?></option><?php endforeach; ?></select></label>
 <?php }
 ?>
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Watched films · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head><body><main>
-<header><?php Auth::accountBar($viewer); ?><h1>What we watched</h1><nav><a href="index.php">Voting and results</a> · <a href="movies.php">Nominations</a></nav><p>Record what actually happened, whether it won, was chosen independently, or happened before this app existed. No vote is needed.</p></header>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Watched films · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head><body><?php LGFC\Navigation::render($viewer, 'watched.php'); ?><main id="main-content" tabindex="-1">
+<header><h1>What we watched</h1><p>Record what actually happened, whether it won, was chosen independently, or happened before this app existed. No vote is needed.</p><nav class="page-jumps" aria-label="On this page"><span>On this page</span><a href="#watched-history">Watched history</a><?php if ($isOrganiser): ?><a href="#record-existing">Record or correct a film</a><a href="#record-new">Add a past film</a><?php endif; ?></nav></header>
 <?php if ($notice || $error): ?><section><p role="<?= $error ? 'alert' : 'status' ?>"><?= Web::escape($error ?: $notice) ?></p></section><?php endif; ?>
 <?php if ($isOrganiser): ?>
-<section><h2>Record an existing film</h2><p>Leave the date blank if you don’t know it. Linking an election records the occasion, not its winning film. Re-recording a film corrects its date and election link.</p>
+<section id="record-existing"><h2>Record an existing film</h2><p>Leave the date blank if you don’t know it. Linking an election records the occasion, not its winning film. Re-recording a film corrects its date and election link.</p>
 <form method="post" class="nomination-form"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><input type="hidden" name="action" value="existing">
 <label>Film <select name="movieId" required><option value="">Choose a film…</option><?php foreach ($movies as $movie): ?><option value="<?= $movie['id'] ?>" <?= $selected === $movie['id'] ? 'selected' : '' ?>><?= Web::escape($movie['title']) ?><?= $movie['is_mystery'] ? ' · Mystery' : '' ?></option><?php endforeach; ?></select></label>
 <?php fields($elections, (int) ($existing['election_id'] ?? $context), $existing['watched_on'] ?? null); ?>
 <button>Save watched record</button></form></section>
-<section><h2>Add a film we already watched</h2><p>For a film not yet in the catalogue. If it is already listed above, use that entry instead.</p>
+<section id="record-new"><h2>Add a film we already watched</h2><p>For a film not yet in the catalogue. If it is already listed above, use that entry instead.</p>
 <?php if (LGFC\MovieMetadata::configured()->available()): ?>
 <form id="metadata-search" method="post" class="nomination-form"><label>Search film title <input name="query" required maxlength="200"></label><label>Search release year (optional) <input name="year" type="number" min="1888" max="2100"></label><button>Search TMDB</button></form>
 <p>Selecting a result copies its title, year, poster and synopsis into the form below. Your watched date and election link stay as entered. Nothing is saved until you add it to watched films.</p>
@@ -72,7 +72,7 @@ function fields(array $elections, int $context, ?string $date): void { ?>
 <?php fields($elections, (int)$newDraft['election_id'], $newDraft['watched_on']); ?>
 <button>Add to watched films</button></form></section>
 <?php endif; ?>
-<section><h2>Watched history</h2><p>These films will be excluded when the next election opens. A film already on an open ballot stays there. Marking a mystery watched does not reveal it.</p>
+<section id="watched-history"><h2>Watched history</h2><p>These films will be excluded when the next election opens. A film already on an open ballot stays there. Marking a mystery watched does not reveal it.</p>
 <?php if (!$history): ?><p>No watched films recorded yet.</p><?php endif; ?>
 <?php foreach ($history as $entry): $movie = $entry['movie']; ?>
 <article class="pool-movie"><h3><?= Web::escape($movie['title']) ?></h3><p><?= $entry['watched_on'] ? 'Watched ' . Web::escape($entry['watched_on']) : 'Watched — date unknown' ?><?php if ($entry['election_id']): ?> · <a href="index.php?electionId=<?= $entry['election_id'] ?>"><?= Web::escape($entry['election_name']) ?></a><?php else: ?> · No election linked<?php endif; ?></p><p><?= Web::escape($movie['nomination_pitch'] ?: '') ?></p><?php if ($isOrganiser): ?><a href="watched.php?movieId=<?= $movie['id'] ?>">Correct watched details</a><?php endif; ?><?php if ($movie['is_mystery']): ?><p>Mystery identity still hidden. <a href="movies.php">The nominator can reveal it separately.</a></p><?php endif; ?></article>

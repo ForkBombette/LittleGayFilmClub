@@ -36,8 +36,8 @@ $pool = array_map([Movies::class, 'publicView'], $pdo->query("SELECT * FROM movi
 usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']));
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Elections · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>
-<body><main>
-<header><?php Auth::accountBar($viewer); ?><h1>Election controls</h1><nav><a href="index.php">Voting and results</a> · <a href="movies.php">Nominations</a> · <a href="watched.php">Watched films</a></nav><p>Organisers open and close elections. Members can inspect all election results.</p></header>
+<body><?php LGFC\Navigation::render($viewer, 'elections.php'); ?><main id="main-content" tabindex="-1">
+<header><p class="eyebrow">The electoral register</p><h1>Elections</h1><p>Organisers open and close elections. Members can inspect all election results.</p><p><a href="#all-elections">Browse election results and ballot histories ↓</a></p></header>
 <?php if ($error): ?><section><p role="alert"><?= Web::escape($error) ?></p></section><?php endif; ?>
 <?php if ($isOrganiser): ?>
 <?php if ($open): ?>
@@ -58,6 +58,6 @@ usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['t
 </section>
 <?php endif; ?>
 <?php endif; ?>
-<section><h2>All elections</h2><?php if (!$elections): ?><p>No elections yet.</p><?php endif; ?>
+<section id="all-elections"><h2>All elections</h2><?php if (!$elections): ?><p>No elections yet.</p><?php endif; ?>
 <ul class="election-history"><?php foreach ($elections as $election): ?><li><a href="index.php?electionId=<?= (int) $election['id'] ?>"><?= Web::escape($election['name']) ?></a> · <?= $election['status'] === 'open' ? 'Voting open' : 'Closed — final result' ?><?php if ($election['closed_at']): ?> · <?= Web::escape($election['closed_at']) ?> UTC<?php endif; ?> · <a href="ballot-history.php?electionId=<?= (int) $election['id'] ?>">Ballot history</a></li><?php endforeach; ?></ul></section>
 </main></body></html>

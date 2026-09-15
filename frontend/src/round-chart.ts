@@ -1,7 +1,7 @@
 import type { RcvResult } from './rcv.js';
 import { transfers } from './preview.js';
 
-type Movie = { id: number; title: string };
+type Movie = { id: number; title: string; release_year?: number | null };
 
 /** Persistent elements let CSS interpolate bars even during rapid draft changes. */
 export function createRoundChart(container: HTMLElement, movies: Movie[]) {
@@ -23,19 +23,41 @@ export function createRoundChart(container: HTMLElement, movies: Movie[]) {
   const heading = add(container, 'h4');
   heading.setAttribute('aria-live', 'polite');
   const summary = add(container, 'p', '', 'chart-summary');
+  const trendLabel = add(container, 'p', '', 'chart-trend-label');
+  const viewport = add(container, 'div', '', 'chart-scroll');
+  viewport.tabIndex = 0;
+  viewport.setAttribute('role', 'region');
+  viewport.setAttribute('aria-label', 'Candidate vote bars; scroll horizontally for more films');
+  const plot = add(viewport, 'div', '', 'chart-columns');
+  plot.style.gridTemplateColumns = `repeat(${Math.max(1, movies.length)}, minmax(100px, 1fr))`;
+  plot.style.minWidth = String(Math.max(1, movies.length) * 100) + 'px';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 1000 220');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'chart-trend');
+  svg.setAttribute('aria-hidden', 'true');
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  line.setAttribute('vector-effect', 'non-scaling-stroke');
+  svg.appendChild(line);
+  plot.appendChild(svg);
+  const palette = ['#6950a1', '#287e8b', '#b3563d', '#397547', '#a34878', '#85641b', '#4265a8', '#795a45'];
+  const title = (movie: Movie) => movie.title + (movie.release_year ? ` (${movie.release_year})` : '');
   const rows = movies.map(movie => {
-    const row = add(container, 'div', '', 'chart-candidate');
-    const label = add(row, 'div', '', 'chart-label');
-    add(label, 'strong', movie.title);
-    const count = add(label, 'span');
+    const row = add(plot, 'div', '', 'chart-candidate');
+    const count = add(row, 'span', '', 'chart-vote-count');
     const track = add(row, 'div', '', 'chart-track');
     track.setAttribute('aria-hidden', 'true');
     const bar = add(track, 'div', '', 'chart-bar');
+    bar.style.backgroundColor = palette[(Number(movie.id) - 1) % palette.length];
+    const label = add(row, 'button', title(movie), 'film-title');
+    label.type = 'button';
+    label.dataset.details = String(movie.id);
+    label.setAttribute('aria-haspopup', 'dialog');
     const status = add(row, 'small', '', 'chart-status');
     return { id: Number(movie.id), row, count, bar, status };
   });
   const explanation = add(container, 'p', '', 'chart-transfer');
-  const name = (id: number) => movies.find(movie => Number(movie.id) === id)?.title ?? `Movie ${id}`;
+  const name = (id: number) => { const movie = movies.find(movie => Number(movie.id) === id); return movie ? title(movie) : `Movie ${id}`; };
   let result: RcvResult = { winner: null, rounds: [] };
   let index = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -58,12 +80,19 @@ export function createRoundChart(container: HTMLElement, movies: Movie[]) {
     summary.textContent = round
       ? `${round.majority} needed for a majority · ${round.exhausted} exhausted · bars show votes out of ${total}`
       : result.winner === null ? 'No winner.' : `${name(result.winner)} wins as the only eligible candidate. No round was tallied.`;
+    // Decorative index deliberately independent of ballots, vote totals and RCV rules.
+    const trend = movies.map(movie => 20 + ((Number(movie.id) * 37 + index * 19) % 61));
+    line.setAttribute('points', trend.map((value, i) => `${(i + .5) * 1000 / movies.length},${220 * (1 - value / 100)}`).join(' '));
+    svg.style.display = movies.length > 1 && !!round ? '' : 'none';
+    trendLabel.textContent = round && trend.length > 1
+      ? `Club trend index: ${Math.round(trend.reduce((sum, value) => sum + value, 0) / trend.length)} · entirely unscientific. Dashed line is not votes.`
+      : '';
     for (const item of rows) {
       const count = round?.counts[item.id];
-      const won = round?.winner === item.id || (!round && result.winner === item.id);
+      const won = result.winner === item.id && (!round || index === result.rounds.length - 1);
       const eliminated = round?.eliminated === item.id;
       item.count.textContent = count === undefined ? '—' : `${count} ${count === 1 ? 'vote' : 'votes'}`;
-      item.bar.style.width = `${total ? (count ?? 0) / total * 100 : 0}%`;
+      item.bar.style.height = `${total ? (count ?? 0) / total * 100 : 0}%`;
       item.row.dataset.state = won ? 'winner' : eliminated ? 'eliminated' : count === undefined ? 'out' : 'active';
       item.status.textContent = won ? 'Winner' : eliminated ? 'Eliminated this round' : count === undefined ? (round ? 'Eliminated earlier' : 'No tally') : 'Continuing';
     }

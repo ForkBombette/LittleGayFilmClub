@@ -229,3 +229,24 @@ Explore ballot history from an election’s result or the All elections list. Al
 History reads a consistent database snapshot and uses the existing PHP RCV engine. Calculations use that election’s remaining candidates throughout: if films were removed, the page explicitly describes these as recalculations rather than exact pre-removal outcomes. Precise removal/ballot event replay remains future work because existing timestamps do not establish an order within a second. Closed history ends at each voter’s frozen revision, and the stored final result remains authoritative. Names use current member names and public movie labels; hidden mysteries stay hidden. No schema migration is needed.
 
 Tests: `php tests/history_test.php` plus the existing election, removal and movie tests. Exercise with two members and several revisions, step back to zero, inspect a removed film’s original ranking, and compare a closed election with its frozen result. Animation remains parked.
+
+## Finding your way around
+
+The shared navigation has four areas:
+
+- **Vote & results** — the current ballot or latest result, with the live draft preview.
+- **Films** — nominations, the catalogue, watched films and removal votes.
+- **Elections** — election results and ballot histories, plus organiser controls.
+- **Club** — your account, credits, and members/invitations for organisers.
+
+Related pages appear beneath the active area. Longer pages offer On this page shortcuts. In the member directory, open a person's name to edit their details or manage invitations; a rejected edit keeps that form open. Navigation and disclosures work without JavaScript and wrap on small screens. The ballot's existing snapshot behaviour and detailed round displays are unchanged. No migration or frontend build is needed for this presentation update.
+
+## Catalogue details and vertical round graph
+
+The film catalogue shows a poster (or neutral artwork) and clickable Title (year) when a year is known. Clicking opens the same native detail flyout used by the ballot, with pitch and synopsis. Mystery entries retain their alias, neutral artwork and hidden year/synopsis. Edit and reveal actions remain separate. The shared dialog markup lives in src/movie-dialog.php; catalogue JSON contains only Movies::publicView data.
+
+The live draft chart now uses vertical bars with stable film colours and positions, a consistent scale across rounds, and clickable film labels. Previous/Next and Replay/Pause retain their existing behaviour. Bars animate in height; reduced-motion preferences disable transitions. On narrow screens or with many candidates, only the graph scrolls horizontally. The detailed round tables remain available below.
+
+The dashed Club trend line and index are deliberately unscientific, derived independently of ballots and vote totals. They never feed into the RCV engine. Exact counts, elimination states and transfer explanations still come from the existing round data. A final surviving candidate is labelled as winner without inventing a further tally.
+
+Validation: npm test in frontend (including replay cancellation, fixed scale, final survivor and decorative-trend independence), PHP movie tests, and isolated desktop/mobile browser checks for catalogue details, mystery filtering, graph labels and live draft dragging. Run npm run build in frontend after changing TypeScript; no database migration is needed. Broader clickable Title (year) links across other lists and historical results remain a follow-up consistency task.

@@ -32,10 +32,11 @@ class Element {
   click() { if (!this.disabled) this.handlers.click?.(); }
   appendChild(child) { this.children.push(child); }
   replaceChildren() { this.children = []; this.textContent = ''; }
-  setAttribute() {}
+  attributes = {};
+  setAttribute(name, value) { this.attributes[name] = value; }
   get text() { return [this.textContent, ...this.children.map(child => child.text)].join(' '); }
 }
-globalThis.document = { createElement: () => new Element() };
+globalThis.document = { createElement: () => new Element(), createElementNS: () => new Element() };
 const movies = [{id: 1, title: '<Film & one>'}, {id: 2, title: 'Two'}, {id: 3, title: 'Three'}];
 
 test('round display includes counts, transfers, threshold, exhaustion and winner', () => {
@@ -67,20 +68,21 @@ test('chart preserves bars, steps through transfers and cancels stale replay on 
   chart.update(result);
   const controls = root.children.find(node => node.className === 'round-controls');
   const [previous, next, replay] = controls.children;
-  const rows = root.children.filter(node => node.className === 'chart-candidate');
+  const plot = root.children.find(node => node.className === 'chart-scroll').children[0];
+  const rows = plot.children.filter(node => node.className === 'chart-candidate');
   const bar = rows[1].children[1].children[0];
-  assert.equal(bar.style.width, '37.5%');
+  assert.equal(bar.style.height, '37.5%');
   assert.ok(previous.disabled);
   next.click();
   assert.ok(root.text.includes('Round 2 of 2'));
-  assert.equal(bar.style.width, '50%');
+  assert.equal(bar.style.height, '50%');
   assert.equal(rows[0].dataset.state, 'out');
   assert.equal(rows[1].dataset.state, 'winner');
   replay.click();
   assert.equal(replay.textContent, 'Pause replay');
-  assert.equal(bar.style.width, '37.5%');
+  assert.equal(bar.style.height, '37.5%');
   t.mock.timers.tick(1800);
-  assert.equal(bar.style.width, '50%');
+  assert.equal(bar.style.height, '50%');
   assert.equal(replay.textContent, 'Replay rounds');
   replay.click();
   chart.update(calculateRcv([[1]], [1,2,3]));
@@ -93,4 +95,30 @@ test('chart preserves bars, steps through transfers and cancels stale replay on 
   chart.update(calculateRcv([], [1]));
   assert.ok(root.text.includes('only eligible candidate'));
   assert.equal(root.hidden, false);
+});
+
+
+test('decorative trend cannot change results; tied final survivor has no invented round', () => {
+  const root = new Element();
+  const chart = createRoundChart(root, movies);
+  const result = calculateRcv([[1], [2]], [1, 2]);
+  const before = structuredClone(result);
+  chart.update(result);
+  const plot = root.children.find(node => node.className === 'chart-scroll').children[0];
+  const svg = plot.children[0];
+  const points = svg.children[0].attributes.points;
+  const rows = plot.children.filter(node => node.className === 'chart-candidate');
+  assert.equal(rows[1].dataset.state, 'winner');
+  assert.equal(rows[1].children[1].children[0].style.height, '50%');
+  assert.ok(root.text.includes('last remaining candidate; no further round is tallied'));
+  assert.deepEqual(result, before);
+  chart.update(calculateRcv([[1], [1], [2]], [1, 2]));
+  assert.equal(svg.children[0].attributes.points, points, 'trend is independent of ballot totals');
+  chart.update(calculateRcv([[1]], [1]));
+  assert.equal(rows[0].children[0].textContent, '—');
+  assert.equal(rows[0].children[1].children[0].style.height, '0%');
+  assert.equal(svg.style.display, 'none');
+  chart.update({ winner: null, rounds: [] });
+  assert.ok(root.text.includes('No winner.'));
+  assert.equal(svg.style.display, 'none');
 });

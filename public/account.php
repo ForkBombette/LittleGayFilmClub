@@ -11,6 +11,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     header('Location: login.php',true,303); exit;
 }
 ?>
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your account</title><link rel="stylesheet" href="styles.css"></head><body><main><section><h1><?= Web::escape($user['display_name']) ?></h1><p><?= $user['role']==='organiser' ? 'Organiser' : 'Member' ?></p><a href="index.php">Back to voting</a>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your account</title><link rel="stylesheet" href="styles.css"></head><body><?php LGFC\Navigation::render($user, 'account.php'); ?><main id="main-content" tabindex="-1"><header><p class="eyebrow">Club business</p><h1>Your account</h1><p>Membership, invitations and the paperwork behind movie night.</p></header><section><h2><?= Web::escape($user['display_name']) ?></h2><p><?= $user['role']==='organiser' ? 'Organiser' : 'Member' ?></p>
 <?php if ($user['role']==='organiser'): ?><p><a href="members.php">Manage members and login links</a></p><?php endif; ?>
 <form method="post"><input type="hidden" name="csrf" value="<?= Web::escape($_SESSION['csrf']) ?>"><button>Sign out of this device</button></form></section></main></body></html>

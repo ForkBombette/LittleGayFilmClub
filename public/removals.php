@@ -26,8 +26,8 @@ $eligible=$pdo->query("SELECT m.* FROM movies m WHERE NOT EXISTS(SELECT 1 FROM r
     AND (m.status='active' OR (m.status='watched' AND EXISTS(SELECT 1 FROM election_movies em JOIN elections e ON e.id=em.election_id WHERE em.movie_id=m.id AND e.status='open')))")->fetchAll();
 $films=array_map([Movies::class,'publicView'],$eligible);usort($films,static fn(array $a,array $b):int=>strcasecmp($a['title'],$b['title']));
 ?>
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Removal votes · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head><body><main>
-<header><?php Auth::accountBar($viewer); ?><h1>Removal votes</h1><a href="index.php">Voting and results</a> · <a href="movies.php">Nominations</a>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Removal votes · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head><body><?php LGFC\Navigation::render($viewer, 'removals.php'); ?><main id="main-content" tabindex="-1">
+<header><h1>Removal votes</h1>
 <p>Removal needs more than half of all active members: currently <?= $needed ?> supporters. Proposing a removal counts as your support. You can change your response until it passes.</p>
 <p>A passed removal eliminates the film from the current open election and excludes it from future elections. Existing ballots transfer to the next remaining choice; closed results stay unchanged.</p></header>
 <?php if ($error || $notice): ?><section><p role="<?= $error?'alert':'status' ?>"><?= Web::escape($error?:$notice) ?></p></section><?php endif; ?>

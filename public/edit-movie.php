@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $hidden = $movie['mystery_alias'] !== null && $movie['revealed_at'] === null;
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Edit nomination · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>
-<body><main><header><?php Auth::accountBar($viewer); ?><h1>Edit your nomination</h1><a href="movies.php">Back to nominations</a></header>
+<body><?php LGFC\Navigation::render($viewer, 'edit-movie.php'); ?><main id="main-content" tabindex="-1"><header><h1>Edit your nomination</h1><a href="movies.php">Back to nominations</a></header>
 <section>
 <?php if ($hidden): ?><p>This editor shows your private film details. Everyone else sees only the mystery alias and pitch. Saving here does not reveal the film.</p><?php endif; ?>
 <p>Correct this film’s details here. To suggest a different film, add a new nomination. Changes appear wherever this film is shown, including election history.</p>

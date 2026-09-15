@@ -22,3 +22,5 @@ require_once __DIR__ . '/Members.php';
 require_once __DIR__ . '/MovieMetadata.php';
 
 require_once __DIR__ . '/BallotHistory.php';
+
+require_once __DIR__ . '/Navigation.php';
