@@ -48,3 +48,11 @@ The local Windows hosts entry still points this domain at the dev machine. Remov
 Upload a new code ZIP, preserving the server's `var` contents. Back up the live database before migrations. Never replace it with the development database after members start using the hosted app. The packaging command deliberately includes only `var/.htaccess`. No server Node build is required.
 
 Local Apache may also point at `D:/Dev/LittleGayFilmClub/public` for matching URLs. Existing dev URLs ending in `/public/` still work because browser asset references are relative to the page.
+
+## Troubleshooting repeated reload/session errors
+
+A CSRF rejection returns HTTP 403 with a reference code; JSON responses also identify `csrf_failed`. Search the hosting account's PHP error log for `LGFC` and that reference. cPanel's Errors view may show it, depending on the host's PHP logging setup; otherwise ask the host for the domain's PHP error log. Do not turn on public display_errors or publish phpinfo.
+
+The log records the endpoint, whether PHP sees HTTPS, whether its session cookie arrived (and duplicate cookie count), whether a CSRF token had to be created on this request, and the session storage handler. It never records token/cookie values, session IDs, form bodies or URL queries. `csrf_token_missing` means the request did not supply a token; `csrf_token_mismatch` means it differs from the session's token. A cookie arriving with a newly created token on every attempt suggests lost/expired session storage or a conflicting cookie; absence of the session cookie suggests cookie delivery/settings. These are diagnostic clues, not proof of a particular cause.
+
+After switching the same hostname from local Apache to production, reload old pages before submitting them. If a newly opened page still fails, compare its failing request's log entry. The remembered `lgfc_login` credential is separate from PHP's temporary session cookie (normally PHPSESSID), so browsing can remain signed in while all protected writes fail. Check the host's PHP session.save_path is writable/retained and that cookie path/domain settings cover the application. Other apps sharing a broadly scoped PHPSESSID cookie can also interfere. Do not disable CSRF protection to work around this.

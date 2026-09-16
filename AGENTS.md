@@ -250,3 +250,7 @@ The open-ballot page now includes a non-interactive corner blob labelled LGFC AI
 Only public bootstrap film labels enter commentary, using textContent. No user names or private mystery metadata are requested. Phrase selection avoids immediate repetition. The blob takes no pointer events or keyboard focus and does not announce itself as a live region. No automatic animation or idle timer is used. The final page content has bottom clearance so it can scroll above the fixed panel. It is shown only on an open ballot; extending it to other club events remains future polish.
 
 Tests: npm test in frontend, including gesture classification, result immutability, safe labels and no network use. Build with npm run build; deploy the updated assets/js modules and styles.css using the normal package. No database migration.
+
+## Session/CSRF diagnostics
+
+Web::checkCsrf rejects invalid/missing tokens with 403 and a support reference, plus csrf_failed in JSON. The matching LGFC entry in PHP's error log contains only request/session metadata; never log raw tokens, cookie/session identifiers, request bodies or URL queries. Web::start also logs failed session startup. Authentication, cookie behaviour and CSRF checks remain enforced; diagnostics must not retry or automatically resubmit writes. See DEPLOYMENT.md for interpretation. Test with tests/web_test.ps1 using an isolated temporary PHP server; it does not access the database.
