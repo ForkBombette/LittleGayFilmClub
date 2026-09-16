@@ -24,35 +24,9 @@ This is a small private film-club voting application. Keep it understandable, pl
 - The TypeScript RCV implementation should remain a pure function and should agree with PHP against shared fixtures.
 - Tie behaviour must be deterministic and explicit. v0.1 eliminates the tied candidate with the numerically lowest candidate ID; this is a placeholder policy, not a constitutional truth.
 
-## UX direction
+## Contributor documentation
 
-Eventually:
-- ranked movies are drag-and-drop cards with posters
-- movie details can fly out from cards
-- users can see speculative election results update while arranging their draft
-- speculative calculations use the committed state as loaded when voting began, not silent mid-edit rebasing
-- graph animation should make transfers/eliminations visible
-- ballot history should support a comic timeline/replay showing how a result evolved
-
-## Roadmap
-
-Core:
-- users
-- movies
-- rankings
-- RCV winner
-
-Nice:
-- drag/drop + images
-- movie info panels
-- external movie search (implemented; requires TMDB configuration)
-- live/animated ranking graph
-- removal votes (implemented)
-- eligibility freeze
-
-Stretch-ish:
-- user management console (implemented)
-- vote timeline/replay
+Read [README.md](README.md) for setup, [CONTRIBUTING.md](CONTRIBUTING.md) for development/testing, [docs/BEHAVIOUR.md](docs/BEHAVIOUR.md) for current rules, and [docs/ROADMAP.md](docs/ROADMAP.md) for remaining work. These documents are intended for people contributing with or without AI tools. Keep them current rather than appending chronological feature notes to the README. The detailed implementation constraints below remain applicable.
 
 ## Coding style
 

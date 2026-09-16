@@ -2,281 +2,116 @@
 
 A tiny, deliberately over-engineered democratic film-night app.
 
-I came up with the concept, thought about the concept, extended the concept, and realised that it 
-couldn't be Python if the plan was to just drop it on a server and run, but it was beyond my meagre 
+I came up with the concept, thought about the concept, extended the concept, and realised that it
+couldn't be Python if the plan was to just drop it on a server and run, but it was beyond my meagre
 PHP skills.
 So it's become an experiment in "vibe coding", while I make sure that I understand what's happening
 every step of the way.
-Endless thanks and blame to Nicola whose objection to selections from the **undisputable** pinnacle of 
+Endless thanks and blame to Nicola whose objection to selections from the **undisputable** pinnacle of
 cinema (ie. 1980s sword-and-sorcery movies) formed the inspiration.
 
-## v0.1 goals
+## What it does
 
-- arbitrary users
-- ongoing movie list
-- rank eligible movies
-- authoritative ranked-choice voting (RCV / instant-runoff) in PHP
-- mirrored speculative RCV engine in TypeScript
-- ballot revisions are retained historically
-- election eligibility is snapshotted when an election opens
-- personal-link authentication with member and organiser permissions
+Members nominate films, make their case, rank the candidates and revise their votes. Organisers manage membership, elections and movie nights. The application is plain PHP, SQLite and browser TypeScript: no application framework, Composer dependency or external identity provider.
+
+- Ranked-choice voting with live draft previews, round charts and saved ballot history.
+- Film search/import from TMDB, posters, mystery nominations and deliberate reveals.
+- One editable comment per member per film, retained across elections.
+- Majority removal votes, watched-film records and election controls.
+- A dated next-movie-night banner, selected democratically or directly by an organiser.
+- Single-use sign-in links supporting multiple remembered devices.
+- A wholly unqualified, entirely canned ✨AI✨ commentator and a meaningless graph trend line.
+
+The core is implemented and the app is hosted. Presentation improvements and known limitations remain; see the [roadmap](docs/ROADMAP.md) and [bug notes](BUGS.md).
+
+## Start here
+
+- [Contributing](CONTRIBUTING.md): code map, request flow, tests and working conventions.
+- [Behaviour and voting rules](docs/BEHAVIOUR.md): what the application promises.
+- [Deployment](DEPLOYMENT.md): cPanel, updates, backups and session troubleshooting.
+
+No AI tool is required to understand, build, test or contribute. Contributions made with or without one follow the same review and testing expectations.
 
 ## Requirements
 
-- PHP 8.1+
-- PDO SQLite extension
-- Node.js 18+ and npm (only for compiling/testing the TypeScript frontend)
+- PHP 8.1+ with PDO SQLite.
+- Node.js 18+ and npm for local frontend builds/tests; neither is needed on the hosting server.
+- PHP cURL with working HTTPS certificate verification for optional TMDB search.
+- PowerShell 7 for the upload-package command and HTTP session test. Other development tasks also work in a POSIX shell.
 
-## WAMP setup
+The commands below assume PHP and npm are on PATH. On Windows/XAMPP, use `C:/xampp/php/php.exe` instead of `php` if needed (PowerShell: `& C:/xampp/php/php.exe ...`).
 
-1. Extract/copy this repository into your WAMP web root, e.g. `C:\\wamp64\\www\\little-gay-film-club`.
-2. Open a terminal in the project root.
-3. Initialise the database:
+## Run a fresh local checkout
 
-   ```bash
+Use your own checkout and database. Run these commands from the project root unless stated otherwise.
+
+1. **Create disposable development data.** This seeds sample members (including Sophie), films and an open election:
+
+   ```sh
    php db/init.php
    ```
 
-4. Build the TypeScript:
+   **This deletes and recreates `var/lgfc.sqlite` if it already exists.** For an existing database, back it up and run `php db/migrate.php` instead. Do not initialise the live database.
 
-   ```bash
+2. Install the locked frontend dependencies and build:
+
+   ```sh
    cd frontend
-   npm install
+   npm ci
    npm run build
    cd ..
    ```
 
-5. Follow Authentication and permissions below to configure HTTPS (or explicit loopback development access), create the first organiser link, and sign in through the `public` directory.
+   The build creates `frontend/dist` for tests and publishes browser modules to `public/assets/js`. Both are generated; edit TypeScript under `frontend/src`.
 
-The SQLite database is created at `var/lgfc.sqlite` and is ignored by Git.
+3. Allow HTTP on this local loopback instance only. Create the empty, ignored marker:
 
-## Tests
+   PowerShell:
+   ```powershell
+   New-Item -ItemType File -Force var/allow-local-http
+   ```
 
-PHP:
+   POSIX shell:
+   ```sh
+   touch var/allow-local-http
+   ```
 
-```bash
-php tests/rcv_test.php
-```
+   Production requires HTTPS. Do not upload this marker; it permits HTTP only for direct loopback clients.
 
-TypeScript:
+4. Generate a local organiser link for the seeded member:
 
-```bash
-cd frontend
-npm test
-```
+   ```sh
+   php db/create-login.php --user "Sophie" --base-url "http://127.0.0.1:8080" --output "var/organiser-login.html"
+   ```
 
-Both engines use the same conceptual fixtures in `tests/fixtures/rcv_cases.json`.
+   This promotes that existing active member to organiser and creates a single-use link. It is also the organiser recovery command. With your own existing data, substitute the member's exact name.
 
-## Current deliberately ugly workflow
+5. Start the development server in a terminal:
 
-Sign in with your personal link, drag films into preference order, and submit. Each submission creates a new ballot revision rather than overwriting the old one. The results page calculates the authoritative RCV result from the latest submitted ballot for each user.
+   ```sh
+   php -S 127.0.0.1:8080 -t public
+   ```
 
-The browser also calculates a speculative result while you drag, using the committed ballots as loaded when the page opened plus your current draft. That is the first stepping stone toward the live animated election graph.
+   Open `var/organiser-login.html` as a local file, follow its link and press **Sign in**. Delete the private HTML file afterwards. The application is at `http://127.0.0.1:8080/`; PHP's built-in server is for local development only.
 
-## Next likely steps
+For Apache, point the virtual host's document root at this checkout's `public` directory. Use a separate local hostname such as `lgfc.test`, mapped to loopback, and use that origin in `--base-url`. Do not reuse the production hostname: cookies and open pages can cross between the two environments. The folder name `public` does not need to appear in the URL.
 
-- improve ballot UI and movie cards/posters
-- result graph and animation
-- add movies and external metadata search (implemented; requires TMDB configuration)
-- majority removal votes (implemented)
-- admin/user management (implemented)
-- historical replay of ballot revisions
+## Sign-in and permissions
 
-## Live round preview
+An organiser creates invitations under **Club → Members**. A link can be redeemed once within seven days; the resulting device login lasts 90 days. Each additional device needs a fresh link. Issuing one replaces older unused links but **does not sign out existing devices**.
 
-The framework-free preview sits beside the ballot (below on narrow screens) and updates during dragging. It uses the page-load snapshot, replacing the signed-in user's ballot, never adding a second vote. Other users' submissions require an explicit reload. A successful local submission updates only that user's snapshot entry using the ranking actually sent. PHP remains authoritative; neither RCV engine's voting rules changed. Transfer counts come from consecutive engine round deltas; final survivors are labelled without inventing a tally.
+Members can vote, nominate, manage their own nominations and comments, and participate in removal votes. Organisers additionally manage members, invitations, elections, watched records and announcements. Organisers cannot edit or reveal someone else's nomination or edit their comments. The last active organiser cannot be demoted or deactivated.
 
-Exercise: sign in, drag a film across another and watch totals before releasing. Submit and reload to compare with the authoritative result. Use a separate browser profile for a second member: their submission must not change the first browser's snapshot until reloaded. Test a narrow window as well.
+Signing out affects that device. **Revoke devices and links** invalidates all of that member's sessions and unused links. Old consumed links cannot be reused; use a fresh link or the CLI recovery command.
 
-## Future non-priority features
+## Optional TMDB search
 
-- Final polish: a non-interactive fake client-side AI commentator blob, reacting to events with canned sarcastic comments. No actual AI, API or network requests. Defer until after core work.
-- Movie flyout discussions are implemented: optional nominator pitch plus one editable/deletable comment per member per movie, persisting across elections.
-- Final visual polish / troll feature: colour-coded vertical bars with a deliberately meaningless trend line overlaid, or the closest practical effect. It may display a fictional trend value and trigger canned remarks from the fake AI commentator. This is decorative only: it must not affect RCV calculations, totals, thresholds or results. Keep parked until after core work.
+Put your TMDB **API Read Access Token** in `var/tmdb-token.txt` as plain UTF-8 text, without quotes. It stays on the server and is ignored by Git. Manual nomination and watched-film entry work without it.
 
-## Animated round chart
+Search/import copies metadata into an editable form; only saving persists it. Metadata is not kept in sync with TMDB. Keep the existing Credits page and attribution when using the service. Never commit or share the token.
 
-The draft preview now includes a bar chart above the retained round tables. Use Previous round / Next round or Replay rounds (which becomes Pause replay). Candidate rows and the vote scale stay fixed across rounds. Reordering immediately updates the selected round and pauses replay. Reduced-motion preferences disable bar transitions. The engine and snapshot rules are unchanged.
+## Build, test and deploy
 
-## Movie cards and mystery nominations
+Run `npm test` in `frontend` to build and run frontend tests. PHP tests are standalone scripts, for example `php tests/elections_test.php`. [CONTRIBUTING.md](CONTRIBUTING.md#tests) gives commands for the full suite and explains the isolated HTTP test.
 
-Cards show posters when available and neutral artwork otherwise. Details opens a native modal flyout (Escape closes it). Movie search/import is available when configured; one-comment-per-user discussions are available in the shared flyout.
-
-Run `php db/migrate.php` once when upgrading an existing database; this adds fields without replacing movies, elections or ballot revisions. Fresh `db/init.php` databases include the fields (init still resets the database). Test with `php tests/movies_test.php` and `npm test` in frontend.
-
-Use **Nominate or reveal a film** while signed in to enter the real film details, optional pitch, and mystery alias. Mysteries require a pitch. New nominations belong to the ongoing pool, not the current election's frozen candidate list. They become eligible when a future election snapshots that pool.
-
-A hidden mystery exposes only its alias, pitch and neutral artwork; PHP filters its title, year, synopsis and poster before rendering cards, bootstrap data and authoritative results. Sort by public title, never the hidden title. Revealing is a deliberate, confirmed action by the nominator on the nomination page; it works after an election closes and never runs automatically. Existing tabs must reload to see a reveal. The reveal is permanent and keeps the same movie ID and ballots.
-
-Reveal ownership is checked on the server against the signed-in member, including for organisers. Apache must honor the supplied .htaccess rules, which block private database/source directories; other servers need equivalent restrictions. Metadata is never fetched for hidden films. Pitches and aliases are intentionally public: keep spoilers out of them.
-
-## Browsing beyond the ballot
-
-Collapsed Not in this election and Watched films lists sit beneath the ballot, with counts and empty states. Active films outside the election snapshot appear in the first; watched films outside it appear in the second. Snapshot membership takes precedence if a film’s status changes mid-election, so it stays on the ballot without duplication. Removed films are omitted. Both lists use the shared detail flyout and server-filtered mystery data. Browse-only films never enter rankings or RCV candidates. Comments are now available in these same movie details. No database migration is needed.
-
-## Election lifecycle
-
-Use **Election controls and history** to open a named election from the active film pool or deliberately close the current election. Only one election may be open. Its eligible movie IDs are snapshotted at opening; later nominations wait for the next election. Each election starts with fresh ballots, and revisions still give each voter one current vote.
-
-Closing stores the authoritative PHP result (winner and rounds) plus the exact latest ballot revision IDs. The server serializes open, close and submit operations using SQLite BEGIN IMMEDIATE, checking election status inside the write transaction. Stale submissions receive HTTP 409 and create no revision. Repeated closure is harmless; reopening a closed election is not supported. Closing with zero submissions stores no winner. Neither RCV engine was changed.
-
-Closed results are read-only at index.php?electionId=ID and remain accessible after a new election opens. With no open election, the default page shows the latest closed election; with no elections at all it shows the browsable pool and links to nominate/open. Mystery identities remain hidden until explicitly revealed; result records contain IDs, and display names use the normal public movie filter. Closing does not mark the winner watched.
-
-Upgrade with php db/migrate.php (no reset). It creates election_results and backfills any legacy closed elections from their retained latest ballots once. Fresh databases include the table. Run php tests/elections_test.php, php tests/movies_test.php, php tests/rcv_test.php and npm test in frontend. Election writes require an authenticated organiser and CSRF protection; all members can read history.
-
-## Watched records
-
-Record watched films supports existing catalogue entries and adding a past film directly as watched, without any election or ballot. A watched date is optional (unknown stays unknown); a related election is optional and may have a different winner or candidate list. A closed result links to this form with its winner preselected, which can be changed. One record per movie can be corrected without duplicating it. Recording is atomic and sets status to watched, excluding the film from future election snapshots while preserving existing snapshots, revisions and stored results. Mystery reveal is separate, including after watching. Only organisers can record or correct watched films; the server records the signed-in organiser as the actor. Watched history keeps aliases private and links to related elections. Run php db/migrate.php to add movie_watches without changing existing data; legacy watched films remain visible with unknown dates. Tests: php tests/watched_test.php.
-
-## Authentication and permissions
-
-Personal links are single-use and expire after seven days. Redeeming one remembers that device for 90 days. Link and device tokens are random secrets stored only as SHA-256 hashes in SQLite. The link secret is a URL fragment: the login page removes it from the address bar and submits it only when Sign in is pressed. Opening a link alone does not consume it.
-
-| Action | Member | Organiser |
-| --- | --- | --- |
-| Browse films, results and watched history | Yes | Yes |
-| Submit/revise own ballot and nominate | Yes | Yes |
-| Reveal own mystery nomination | Yes | Yes |
-| Reveal someone else's mystery | No | No |
-| Open/close elections and record/correct watched films | No | Yes |
-| Generate personal links and revoke devices/links | No | Yes |
-| Add/rename members, change roles and activate/deactivate | No | Yes |
-
-Each request reloads active status and role from the database. Submitted user IDs never select the voter, nominator or watch recorder. State-changing requests require CSRF protection. Account provides sign-out for the current device; organiser revocation removes all devices and unused links for that member, preserving their ballots. Creating a new link replaces unused links but keeps existing devices signed in.
-
-### Install or upgrade
-
-1. Run `php db/migrate.php` to add authentication tables and roles without resetting existing data. Existing members default to `member`.
-2. Serve over HTTPS. Cookies use HttpOnly and SameSite=Strict, with Secure on HTTPS. For local Apache/hosts-file development only, create the empty ignored file `var/allow-local-http`; it permits HTTP only when PHP sees the direct client as `127.0.0.1` or `::1`. Forwarded headers cannot enable this exception. Do not deploy the marker.
-3. Choose an existing member as initial organiser and run the command below, substituting their exact display name and the site's public-directory URL. Open the generated private HTML file locally and follow its link. The same CLI command supports organiser recovery; it is never accessible through HTTP.
-
-```text
-php db/create-login.php --user "MEMBER NAME" --base-url "https://YOUR_HOST/public" --output "var/organiser-login.html"
-```
-
-4. Open Account → Manage members and login links to create links for other members and share them privately. Each extra device needs a fresh link. Delete the private bootstrap HTML once used; it is ignored by Git and its directory is denied by Apache.
-
-Apache must honor the supplied `.htaccess` rules; another server needs equivalent protection for private directories. Organisers can create and manage members through Account → Manage members and login links. No external identity provider, email delivery or API is involved.
-
-Validation: `php tests/auth_test.php`, the existing elections/watched/movies/RCV PHP tests, and `npm test` in `frontend`. HTTP checks should use an isolated copy/database and separate cookie sessions: anonymous requests redirect (ballot API returns 401), members receive 403 for organiser writes and management, missing CSRF gives 403, forged actor IDs cannot impersonate, one-time links cannot be replayed, and revocation invalidates an existing login. Confirm that signing in restores only that member's current ballot and preserves the draft snapshot rules.
-
-### If you sign yourself out
-
-Signing in consumes the personal link and creates a separate remembered-device session. Signing out removes that device session; revoking access removes all the member's device sessions and unused links. Neither makes an old link reusable. A sole organiser can recover using the CLI command above; keep the same existing user name to retain their ballots and nominations.
-
-`--base-url` normally ends in `/public`, not `/public/login.php`. The command also accepts the sign-in page address and normalizes it. After running it, open or reload the newly written local HTML file and follow the new link; an already-open copy may still contain the previous link. The terminal prints the output file's full path. Running the command replaces earlier unused links, but leaves remembered devices signed in.
-
-## Nomination management
-
-The nominations page now has a Your nominations list and owner-only Edit nomination links. An active nominator can correct title, release year, poster, synopsis, pitch and an existing mystery alias, including after watching or an election closes. Corrections update the shared movie metadata shown in history; nominate a new film rather than replacing an existing film's identity.
-
-Private editor records are available only to their nominator, never to other members or organisers. Public catalogue data still uses the mystery filter. Saving cannot change ownership, status, eligibility, ballots or reveal state. Public films cannot be hidden retroactively, and revealed mysteries cannot be re-hidden. Reveal remains the separate confirmed action.
-
-An editor carries a fingerprint of the movie it loaded; saving checks it inside a serialized write transaction. A newer edit, reveal or watched-status change rejects a stale save. Validation failures retain typed text. Reload a stale editor after copying any unsaved text you want to keep.
-
-No database migration is required. Test with `php tests/nominations_test.php` and `php tests/movies_test.php`. Exercise by signing in, choosing Nominations → Your nominations, editing a pitch and checking it in Details. Try opening the editor twice and saving in both; the second save must report a stale edit. Other users must receive 403 if they request that editor directly. Majority removal votes are described below.
-
-## Majority removal votes
-
-Open Removal votes from voting or nominations. Any active member can propose removal with a public reason; this counts as their support. Each active member has one changeable Support removal / Keep film response. The request passes immediately when support reaches floor(active members / 2) + 1, counting all active members rather than only respondents. Pending support and threshold use current active membership, evaluated on each response. Completed decisions retain their passing totals and cannot be reversed by changing a response. Organisers have no extra voting weight.
-
-Passing marks the movie removed and records exclusions only for currently open elections containing it. Original election_movies rows and every ballot revision remain untouched. Both RCV engines already skip candidates absent from their eligible set, so existing preferences transfer naturally. New elections exclude removed films. Closed elections and stored results remain unchanged, even if the same film is removed later. A watched film still on the open ballot can be removed by vote. No reveal is triggered, and request lists use public mystery metadata. Reasons are public and must not contain spoilers. Removing every candidate leaves no winner and disables ballot submission.
-
-A stale ballot POST receives HTTP 409 / candidates_changed with current eligible IDs and creates no revision. The browser removes those films from its current draft, retains the relative order, rebuilds the round preview, and asks for review and a second submission. It does not fetch newer votes or replace the committed baseline. Another intervening removal causes another review. Closure still rejects submissions with election_closed. The page-load committed-result section remains explicitly a snapshot.
-
-Upgrade with php db/migrate.php; this adds removal_requests, removal_votes and election_removals without changing existing data. Fresh schema includes them. Removal, election lifecycle and ballot writes share BEGIN IMMEDIATE to serialize races. Tests: php tests/removals_test.php, the existing PHP suites, and npm test in frontend (including candidate reconciliation). To exercise, use separate signed-in members to reach a majority while another tab holds a draft; its first submit must request review without saving, and its next submit must save only the remaining ranking. Open an earlier closed election to confirm its result is unchanged.
-
-## Member management
-
-Account → Manage members and login links lets organisers add members, rename accounts, change roles, deactivate/reactivate membership, and manage invitations/devices. New accounts start as active members; promotion is an explicit edit. Names must be nonempty, at most 100 characters, and cannot duplicate an existing account (including inactive accounts; ASCII case variants compare equal).
-
-Updates retain the same user ID and all ballots, nominations and removal responses. Deactivation deletes login links and remembered sessions; reactivation requires a fresh link and never restores the old credentials. Role and name changes are reflected on the next authenticated request. No accounts are deleted. Existing election ballots remain counted; active membership affects pending removal counts and thresholds under the existing next-response rule. Completed removal decisions and closed results stay unchanged.
-
-Every create/update checks organiser permission inside BEGIN IMMEDIATE. Member edits include a version fingerprint so stale tabs cannot overwrite newer changes. The final active organiser cannot be demoted or deactivated; assign another active organiser first. Inactive organisers do not satisfy that safeguard. Self-demotion redirects to Account; self-deactivation signs out. Explicit device revocation/sign-out can still require CLI recovery for a sole organiser.
-
-No database migration is required. Tests: php tests/members_test.php and php tests/auth_test.php. Exercise using an isolated account: add it, create its personal link, rename it, deactivate and verify its signed-in device loses access, then reactivate and issue a fresh link. Try demoting the only active organiser and saving two stale edits; both must be rejected without changing records.
-
-## Movie search and metadata import
-
-The nomination page can search TMDB by title and optional release year, then copy a selected result's title, year, synopsis and poster into the editable form. The first 20 results are shown; refine the title/year if needed. Import preserves the member's pitch and mystery settings. Selection performs no database write; only Save nomination persists a movie. Missing fields stay editable and manual entry remains available when search is unconfigured or unavailable. Validation errors retain the draft.
-
-### Configure TMDB
-
-Apply for developer API access in your TMDB account settings, then use the API Read Access Token (the bearer token, not the shorter v3 API key). Put only that token in var/tmdb-token.txt, as plain UTF-8 text without quotes. Refresh the nominations page. The file is ignored by Git and blocked from HTTP by the existing var/.htaccess rule. Keep your production copy private too. No database migration is required; PHP cURL with working HTTPS certificate verification is required for live search.
-
-Search is explicitly requested by a signed-in member through a CSRF-protected POST. PHP contacts the fixed TMDB HTTPS endpoint with the bearer token in a header; the browser never receives the credential. Requests have connection/overall timeouts, bounded response size and no redirects. Error responses do not expose provider bodies or credentials. Search terms are sent to TMDB only when the user presses Search; existing catalogue entries, including hidden mysteries, are never searched or refreshed automatically. The importer is available for new nominations and organiser-only historical watched entries. Existing film metadata can still be corrected through the owner-only editor.
-
-Imported metadata is copied into the ordinary movie fields, not kept in sync with TMDB. Mystery filtering continues to remove private title/year/poster/synopsis from shared views. No external provider ID is exposed for hidden films. The Credits page includes TMDB's approved logo and required attribution; retain it when using their data/images. The local logo is the unmodified Primary long (blue) SVG from their official branding page.
-
-Provider references: [authentication](https://developer.themoviedb.org/docs/authentication-application), [movie search](https://developer.themoviedb.org/reference/search-movie), [image URLs](https://developer.themoviedb.org/docs/image-basics), and [attribution](https://developer.themoviedb.org/docs/faq).
-
-Tests: php tests/metadata_test.php, php tests/movies_test.php and npm test in frontend. Fixtures cover provider failures, missing data, safe poster paths, credential handling and import field boundaries. The browser search/import/mystery-save flow is checked with an isolated fake provider; live search has also been verified with the locally configured TMDB token.
-
-## Importing previously watched films
-
-Under Watched films → Add a film we already watched, organisers can use the same TMDB search and import flow. Selection fills the new film's title, year, synopsis and poster while preserving the chosen watched date and optional election link. Review the fields, then Add to watched films; searching and importing alone write nothing. Use Record an existing film when the movie is already in the catalogue.
-
-The film and watched record are saved together through the existing watched service. No ballots are invented, no election candidates are added, and the movie is immediately excluded from future elections. Manual entry remains available; validation errors retain the new-entry draft. Regular members can still browse watched history but cannot see or submit the organiser forms. No migration or additional API setup is needed. Tests cover watched metadata persistence, date/election preservation, validation rollback and the shared importer.
-
-## Known bugs
-
-See [BUGS.md](BUGS.md) for documented issues contributors can pick up, including duplicate entries when adding previously watched films.
-
-## Ballot history
-
-Explore ballot history from an election’s result or the All elections list. All signed-in members can step through submissions, inspect each ranking and calculated RCV rounds, and see how revisions replace the same member’s vote. Step zero shows no ballots. Submission IDs provide deterministic order even when timestamps share a second. Reload explicitly to see new submissions; the voting-page draft baseline is unaffected.
-
-History reads a consistent database snapshot and uses the existing PHP RCV engine. Calculations use that election’s remaining candidates throughout: if films were removed, the page explicitly describes these as recalculations rather than exact pre-removal outcomes. Precise removal/ballot event replay remains future work because existing timestamps do not establish an order within a second. Closed history ends at each voter’s frozen revision, and the stored final result remains authoritative. Names use current member names and public movie labels; hidden mysteries stay hidden. No schema migration is needed.
-
-Tests: `php tests/history_test.php` plus the existing election, removal and movie tests. Exercise with two members and several revisions, step back to zero, inspect a removed film’s original ranking, and compare a closed election with its frozen result. Animation remains parked.
-
-## Finding your way around
-
-The shared navigation has four areas:
-
-- **Vote & results** — the current ballot or latest result, with the live draft preview.
-- **Films** — nominations, the catalogue, watched films and removal votes.
-- **Elections** — election results and ballot histories, plus organiser controls.
-- **Club** — your account, credits, and members/invitations for organisers.
-
-Related pages appear beneath the active area. Longer pages offer On this page shortcuts. In the member directory, open a person's name to edit their details or manage invitations; a rejected edit keeps that form open. Navigation and disclosures work without JavaScript and wrap on small screens. The ballot's existing snapshot behaviour and detailed round displays are unchanged. No migration or frontend build is needed for this presentation update.
-
-## Catalogue details and vertical round graph
-
-The film catalogue shows a poster (or neutral artwork) and clickable Title (year) when a year is known. Clicking opens the same native detail flyout used by the ballot, with pitch and synopsis. Mystery entries retain their alias, neutral artwork and hidden year/synopsis. Edit and reveal actions remain separate. The shared dialog markup lives in src/movie-dialog.php; catalogue JSON contains only Movies::publicView data.
-
-The live draft chart now uses vertical bars with stable film colours and positions, a consistent scale across rounds, and clickable film labels. Previous/Next and Replay/Pause retain their existing behaviour. Bars animate in height; reduced-motion preferences disable transitions. On narrow screens or with many candidates, only the graph scrolls horizontally. The detailed round tables remain available below.
-
-The dashed Club trend line and index are deliberately unscientific, derived independently of ballots and vote totals. They never feed into the RCV engine. Exact counts, elimination states and transfer explanations still come from the existing round data. A final surviving candidate is labelled as winner without inventing a further tally.
-
-Validation: npm test in frontend (including replay cancellation, fixed scale, final survivor and decorative-trend independence), PHP movie tests, and isolated desktop/mobile browser checks for catalogue details, mystery filtering, graph labels and live draft dragging. Run npm run build in frontend after changing TypeScript; no database migration is needed. Clickable Title (year) links now extend across lists and historical results.
-
-## Film details and discussions
-
-Film titles are consistently displayed as Title (year), omitting unknown or hidden years. Titles in ballots, graph/round results, nomination lists, watched history, removal requests and election history open the shared detail flyout. Native film selectors keep their normal selection behaviour, with a separate Details of selected film button. Edit actions are separate from reading details.
-
-The flyout retains the optional nominator pitch and adds one comment per member per movie (up to 2,000 characters). Members can save, edit or delete only their own comment; organisers have no moderation override. Comments belong to the movie ID and survive watching, removal, election closure and new elections. Deactivated members’ existing comments remain visible. Duplicate movie identities remain the separate deferred issue in BUGS.md.
-
-Opening a flyout fetches public film details and comments without rebasing the voting page’s ballot snapshot. Comment writes require an authenticated active member and CSRF, with ownership derived from the session. A composite key enforces one comment per movie/member. Version tokens reject stale updates/deletes and simultaneous first submissions; refreshing after a conflict preserves the local draft for review. Drafts also survive switching films within the same page, but are not persisted across page reloads/navigation. Slow responses from a previous film cannot replace the current discussion. Comments are plain text and public to the club; mystery metadata remains filtered by Movies::publicView.
-
-Upgrade with php db/migrate.php (never db/init.php on an existing database), then npm run build in frontend. The additive migration creates movie_comments; it does not modify elections, ballots, nominations or removal decisions. Fresh databases include the table. Validate with php tests/comments_test.php and npm test in frontend, plus the existing PHP suites. Browser checks should cover a member’s own save/edit/delete, a competing edit in another tab, stale drafts, mystery films, and details from watched and historical results.
-
-## Next movie night announcements
-
-A shared banner on signed-in pages shows the announced date and film, distinguishing an election winner from a direct organiser choice. Vote & results → Next movie night lets organisers announce an election winner, choose a catalogue film directly, change only the date, or clear the banner. Existing election controls also accept an optional movie-night date when closing: with a date they close and announce; without one they retain the previous close-only behaviour. A closed, non-cancelled election can be announced later. An election with no winner cannot be announced.
-
-A direct choice replaces the announcement and cancels the currently open election in the same BEGIN IMMEDIATE transaction. Its status becomes closed and an election_cancellations record distinguishes cancellation from a completed vote. Exact ballot revisions and the tally at cancellation are retained for reference, with cancellation explicitly labelled in election/results/history views. Cancelled elections cannot subsequently supply a democratic announcement. New ballot submissions are rejected after cancellation. Direct scheduling does not change film voting status, including for watched/removed catalogue entries; it does not reinstate them in the nomination pool.
-
-Announcements are independent of watched records, film eligibility and mystery reveals. Date-only changes preserve the original selection source and do not cancel voting. Clear the announcement when no longer needed; clearing never reopens an election or marks a film watched. Past dates are labelled Last announced movie night rather than presented as upcoming. New dates must be today or later in Europe/London. Names/years/posters/synopses continue to use public mystery filtering.
-
-Writes require an active organiser and CSRF. Submitted announcement and open-election versions are checked under the write lock, so stale forms cannot overwrite a newer plan or cancel an election opened since page load. Announcement records are retained as an audit trail, including replacements and clearing. A winner announcement freezes the result and creates the plan atomically; failure rolls both back. Elections::closeInTransaction is an internal composition method and must only be called while the caller holds the existing BEGIN IMMEDIATE transaction.
-
-Upgrade with php db/migrate.php; the additive movie-nights.sql migration creates movie_night_announcements and election_cancellations. Do not run db/init.php on an existing database. No frontend build is needed. Tests: php tests/movie_nights_test.php plus existing PHP suites; isolated HTTP/browser checks cover democratic closure, a direct override with cancellation, stale submissions, permissions, CSRF and mobile banner layout.
-
-## Hosting at the domain root
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the cPanel layout, safe data transfer and update procedure. Run ./package-hosting.ps1 locally to test/build and create a code-only upload ZIP. The domain document root is the project's public directory; compiled browser assets are published into public/assets/js by npm run build.
-
-## The AI consultant
-
-The open voting page has acquired LGFC AI: a small sarcastic commentator reacting to completed ballot moves and submission outcomes. It is entirely client-side canned commentary, with no AI service or API. It never changes votes, calculations or the draft snapshot. Comments live in frontend/src/commentator.ts if the club wishes to make its consultant worse. Run npm test in frontend and build/upload the browser assets and styles; no migration is required.
+For hosting, `./package-hosting.ps1` tests/builds the frontend and creates a code-only ZIP in `release`. It does not run the PHP suite. Follow [DEPLOYMENT.md](DEPLOYMENT.md) for the initial data transfer and later updates; never replace live member data with a development database.

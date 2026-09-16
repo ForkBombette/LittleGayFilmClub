@@ -14,7 +14,7 @@ From the local project root in PowerShell:
 ./package-hosting.ps1
 ```
 
-This runs the frontend tests/build and creates a timestamped ZIP in `release`. Extract its contents directly into `/home/geexnet/littlegayfilmclub` (no extra enclosing folder). Include hidden `.htaccess` files. The package contains PHP, SQL migrations, static assets and compiled JavaScript. It excludes the database, backups, secrets, generated login links, local HTTP marker, Git, node_modules and development sources/tests.
+This runs the frontend tests/build (not the PHP suite; see CONTRIBUTING.md in the repository for those commands) and creates a timestamped ZIP in `release`. Extract its contents directly into `/home/geexnet/littlegayfilmclub` (no extra enclosing folder). Include hidden `.htaccess` files. The package contains PHP, SQL migrations, static assets and compiled JavaScript. It excludes the database, backups, secrets, generated login links, local HTTP marker, Git, node_modules and development sources/tests.
 
 ## First upload: bring the real data separately
 
@@ -41,7 +41,7 @@ php db/create-login.php --user "Sophie" --base-url "https://littlegayfilmclub.ge
 
 Download that private HTML file using cPanel File Manager, open it locally and follow the link, then delete the file. If there is no server terminal, generate the link locally before taking the database snapshot, using the production base URL; the snapshot must contain that newly issued link.
 
-The local Windows hosts entry still points this domain at the dev machine. Remove/comment it for the production test (or use a device without that override). Visit the HTTPS domain, sign in, check the movie-night banner, film details/comments, ballot drag preview and TMDB search. Check `/assets/js/app.js` loads. Requests to `/var/lgfc.sqlite` and `/src/Database.php` must not return private files; with the correct public document root they do not exist at those URLs.
+Use a distinct local development hostname, such as lgfc.test. Ensure no hosts-file override redirects the production domain to your dev machine; using one hostname for both can mix cookies and stale page tokens. Visit the HTTPS domain, sign in, check the movie-night banner, film details/comments, ballot drag preview and TMDB search. Check `/assets/js/app.js` loads. Requests to `/var/lgfc.sqlite` and `/src/Database.php` must not return private files; with the correct public document root they do not exist at those URLs.
 
 ## Later updates
 
