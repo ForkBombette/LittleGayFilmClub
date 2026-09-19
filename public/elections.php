@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $elections = $pdo->query('SELECT e.*, c.cancelled_at FROM elections e LEFT JOIN election_cancellations c ON c.election_id=e.id ORDER BY e.id DESC')->fetchAll();
 $planVersion = $error ? (int)($_POST['expectedPlan']??0) : LGFC\MovieNights::latestId($pdo);
 $open = array_values(array_filter($elections, static fn(array $e): bool => $e['status'] === 'open'));
-$pool = array_map([Movies::class, 'publicView'], $pdo->query("SELECT * FROM movies WHERE status = 'active'")->fetchAll());
+$pool = array_map([Movies::class, 'publicView'], $pdo->query("SELECT movies.* FROM movies left JOIN (Select movie_id FROM movie_night_announcements ORDER BY movie_night_announcements.id DESC LIMIT 1) as announcements ON movies.id=announcements.movie_id WHERE status = 'active' and movie_id is NULL")->fetchAll());
 usort($pool, static fn(array $a, array $b): int => strcasecmp($a['title'], $b['title']));
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Elections · Little Gay Film Club™</title><link rel="stylesheet" href="styles.css"></head>

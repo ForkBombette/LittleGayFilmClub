@@ -89,7 +89,7 @@ final class Elections
             if ($pdo->query("SELECT id FROM elections WHERE status = 'open' LIMIT 1")->fetchColumn() !== false) {
                 throw new DomainException('Close the current election before opening another.');
             }
-            $candidates = $pdo->query("SELECT id FROM movies WHERE status = 'active' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
+            $candidates = $pdo->query("SELECT movies.id FROM movies left JOIN (Select movie_id FROM movie_night_announcements ORDER BY movie_night_announcements.id DESC LIMIT 1) as announcements ON movies.id=announcements.movie_id WHERE status = 'active' and movie_id is NULL ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
             if ($candidates === []) throw new DomainException('Nominate at least one active film before opening an election.');
             $stmt = $pdo->prepare("INSERT INTO elections (name, status) VALUES (?, 'open')");
             $stmt->execute([$name]);
