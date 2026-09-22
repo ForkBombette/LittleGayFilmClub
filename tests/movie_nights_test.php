@@ -23,7 +23,8 @@ rejects(fn()=>MovieNights::announce($p,1,'direct',2,'2099-01-02',0,0),DomainExce
 $next=Elections::open($p,'Next election');
 rejects(fn()=>MovieNights::announce($p,1,'direct',2,'2099-01-02',$announcement,0),DomainException::class,'stale form cannot cancel an election opened since load');
 rejects(fn()=>MovieNights::announce($p,1,'election',1,'2099-01-02',$announcement,$next),DomainException::class,'older winner cannot silently close a different election');
-$nextRevision=Elections::submit($p,$next,1,$ids);
+$nextIds=array_reverse(Elections::candidateIds($p,$next));
+$nextRevision=Elections::submit($p,$next,1,$nextIds);
 $before=Elections::currentResult($p,$next);
 $direct=MovieNights::announce($p,1,'direct',2,'2099-01-02',$announcement,$next);
 check(MovieNights::cancelled($p,$next) && MovieNights::openId($p)===0,'direct selection cancels the current election');

@@ -27,7 +27,10 @@ final class Movies
     public static function browseLists(PDO $pdo, int $electionId): array
     {
         $stmt = $pdo->prepare("SELECT m.* FROM movies m
-            WHERE m.status IN ('active', 'watched') AND NOT EXISTS (
+            WHERE m.status IN ('active', 'watched')
+                AND (m.status='watched' OR NOT EXISTS (SELECT 1 FROM
+                    (SELECT movie_id FROM movie_night_announcements ORDER BY id DESC LIMIT 1) a WHERE a.movie_id=m.id))
+                AND NOT EXISTS (
                 SELECT 1 FROM election_movies em WHERE em.movie_id = m.id AND em.election_id = ?
             )");
         $stmt->execute([$electionId]);

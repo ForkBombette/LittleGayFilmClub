@@ -29,3 +29,5 @@ require_once __DIR__ . '/Comments.php';
 require_once __DIR__ . '/FilmUi.php';
 
 require_once __DIR__ . '/MovieNights.php';
+
+require_once __DIR__ . '/ElectionDraw.php';

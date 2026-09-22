@@ -15,6 +15,7 @@ cinema (ie. 1980s sword-and-sorcery movies) formed the inspiration.
 Members nominate films, make their case, rank the candidates and revise their votes. Organisers manage membership, elections and movie nights. The application is plain PHP, SQLite and browser TypeScript: no application framework, Composer dependency or external identity provider.
 
 - Ranked-choice voting with live draft previews, round charts and saved ballot history.
+- Random draws of 5 or 8 films, three-skip priority, one optional guaranteed film and recorded selection reasons.
 - Film search/import from TMDB, posters, mystery nominations and deliberate reveals.
 - One editable comment per member per film, retained across elections.
 - Majority removal votes, watched-film records and election controls.

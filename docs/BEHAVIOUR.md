@@ -4,7 +4,7 @@ This describes the implemented application. See the [roadmap](ROADMAP.md) for fu
 
 ## Elections and ballots
 
-There is at most one open election. Opening it snapshots the active film IDs into `election_movies`; later nominations wait for a subsequent election. Each election starts with fresh ballots. New submissions append revisions, and only each member's latest revision counts as their current vote.
+There is at most one open election. Opening it draws 5 or 8 eligible films and snapshots the selected IDs into `election_movies`; later nominations wait for a subsequent election. Each election starts with fresh ballots. New submissions append revisions, and only each member's latest revision counts as their current vote.
 
 Counting uses single-winner instant-runoff voting (RCV). PHP is authoritative; TypeScript mirrors it for previews. A tied lowest total eliminates the candidate with the lowest numeric ID. This is the current deterministic policy, not a rule to change casually. An election with no submitted ballots has no authoritative winner.
 
@@ -46,7 +46,7 @@ Changing only the date preserves the selection source and does not cancel an ope
 
 Announcement writes require organiser permission, CSRF and matching announcement/open-election versions. Stale forms cannot overwrite a newer plan or cancel an election opened since page load. Announcement, watched status, eligibility and mystery reveal are separate.
 
-**Currently, being announced alone does not exclude an active film from a new election.** The proposed change to that rule is not implemented in the committed code; see the roadmap.
+The currently announced film is excluded from new election draws and the Not in this election shelf; see Election draws and recorded selection below.
 
 ## Accounts and permissions
 
@@ -69,3 +69,14 @@ Ballot history steps through revisions, starting with no ballots and ending at t
 The live chart has fixed candidate positions, vertical coloured bars, round stepping/replay and reduced-motion support. Counts and transfers come from engine rounds. A final survivor is labelled without inventing another tally. Detailed round tables are retained. The decorative trend/index never feeds into counting.
 
 The open-ballot commentator chooses canned lines locally after completed changed drags and submission outcomes. It prioritises changed draft winners/elimination order, uses only public film labels, and has no API, persistence or influence on the vote. It does not monitor other members or announce events elsewhere in the club.
+## Election draws and recorded selection
+
+Opening an election draws either 5 or 8 films from active, unscheduled films. One eligible film may be guaranteed, within that total. After placing it, films missed in at least three consecutive eligible draws get priority; oversubscribed priority places are random, then remaining places are drawn randomly from the rest. A smaller pool includes all eligible films.
+
+The draw, candidate snapshot and full eligible pool audit are saved in the same transaction. Candidate selection details in Elections show Random draw, Random draw — three-skip priority, Guaranteed, or Not selected, plus prior skip counts. Selected films reset their count. Ineligible elections do not add skips; cancelled elections neither add skips nor reset them. Historical elections without a recorded draw have unknown methods and do not contribute inferred skips. Counting begins with recorded draws after this upgrade.
+
+The scheduled active film is also omitted from Not in this election; clearing the announcement restores it if still active. Watched history remains available, and existing election snapshots never change due to scheduling.
+
+Upgrade with php db/migrate.php after backing up the database. This adds election_draws and election_draw_movies without rewriting previous elections or ballots. Build the frontend for the six new decorative graph phrases, selected once per displayed round per chart instance to avoid flicker during dragging. They never affect the trend calculation or RCV.
+
+Tests: tests/election_draw_test.php, existing election/movie-night suites and npm test. Exercise 5/8 selection, optional guarantee, undersized pools, a scheduled guarantee rejected after a stale page load, priority overflow and the saved audit. Existing RCV and ballot snapshot rules are unchanged.

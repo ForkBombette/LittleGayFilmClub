@@ -81,21 +81,27 @@ final class Elections
         return json_decode($json, true, 512, JSON_THROW_ON_ERROR);
     }
 
-    public static function open(PDO $pdo, string $name): int
+    public static function open(PDO $pdo, string $name, int $size = 8, ?int $guaranteed = null): int
     {
         $name = trim($name);
         if ($name === '' || strlen($name) > 200) throw new InvalidArgumentException('Enter an election name of at most 200 characters.');
-        return self::write($pdo, static function () use ($pdo, $name): int {
+        return self::write($pdo, static function () use ($pdo, $name, $size, $guaranteed): int {
             if ($pdo->query("SELECT id FROM elections WHERE status = 'open' LIMIT 1")->fetchColumn() !== false) {
                 throw new DomainException('Close the current election before opening another.');
             }
-            $candidates = $pdo->query("SELECT movies.id FROM movies left JOIN (Select movie_id FROM movie_night_announcements ORDER BY movie_night_announcements.id DESC LIMIT 1) as announcements ON movies.id=announcements.movie_id WHERE status = 'active' and movie_id is NULL ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
+            $pool = ElectionDraw::pool($pdo);
+            $ids = array_map('intval', array_column($pool, 'id'));
+            $skips = ElectionDraw::skips($pdo);
+            $selected = ElectionDraw::choose($ids, $skips, $size, $guaranteed);
+            $candidates = array_keys($selected);
+            sort($candidates, SORT_NUMERIC);
             if ($candidates === []) throw new DomainException('Nominate at least one active film before opening an election.');
             $stmt = $pdo->prepare("INSERT INTO elections (name, status) VALUES (?, 'open')");
             $stmt->execute([$name]);
             $id = (int) $pdo->lastInsertId();
             $insert = $pdo->prepare('INSERT INTO election_movies (election_id, movie_id) VALUES (?, ?)');
             foreach ($candidates as $candidate) $insert->execute([$id, $candidate]);
+            ElectionDraw::record($pdo, $id, $size, $ids, $skips, $selected);
             return $id;
         });
     }

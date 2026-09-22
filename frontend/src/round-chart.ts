@@ -1,3 +1,4 @@
+import { chooseTrendPhrase } from './trend-commentary.js';
 import { filmText } from './film-label.js';
 import type { RcvResult } from './rcv.js';
 import { transfers } from './preview.js';
@@ -25,6 +26,7 @@ export function createRoundChart(container: HTMLElement, movies: Movie[]) {
   heading.setAttribute('aria-live', 'polite');
   const summary = add(container, 'p', '', 'chart-summary');
   const trendLabel = add(container, 'p', '', 'chart-trend-label');
+  const trendComments = new Map<number, string>();
   const viewport = add(container, 'div', '', 'chart-scroll');
   viewport.tabIndex = 0;
   viewport.setAttribute('role', 'region');
@@ -85,8 +87,9 @@ export function createRoundChart(container: HTMLElement, movies: Movie[]) {
     const trend = movies.map(movie => 20 + ((Number(movie.id) * 37 + index * 19) % 61));
     line.setAttribute('points', trend.map((value, i) => `${(i + .5) * 1000 / movies.length},${220 * (1 - value / 100)}`).join(' '));
     svg.style.display = movies.length > 1 && !!round ? '' : 'none';
+    if (!trendComments.has(index)) trendComments.set(index, chooseTrendPhrase());
     trendLabel.textContent = round && trend.length > 1
-      ? `Club trend index: ${Math.round(trend.reduce((sum, value) => sum + value, 0) / trend.length)} · entirely unscientific. Dashed line is not votes.`
+      ? `Club trend index: ${Math.round(trend.reduce((sum, value) => sum + value, 0) / trend.length)} · ${trendComments.get(index)}`
       : '';
     for (const item of rows) {
       const count = round?.counts[item.id];

@@ -122,3 +122,18 @@ test('decorative trend cannot change results; tied final survivor has no invente
   assert.ok(root.text.includes('No winner.'));
   assert.equal(svg.style.display, 'none');
 });
+
+import { trendPhrases, chooseTrendPhrase } from '../dist/trend-commentary.js';
+test('trend phrase banks vary without flickering during draft updates', () => {
+  assert.equal(new Set(trendPhrases).size, 6);
+  assert.equal(chooseTrendPhrase(() => 0), trendPhrases[0]);
+  assert.equal(chooseTrendPhrase(() => .999), trendPhrases[5]);
+  const root = new Element();
+  const chart = createRoundChart(root, movies);
+  chart.update(calculateRcv([[1]], [1,2,3]));
+  const label = root.children.find(node => node.className === 'chart-trend-label');
+  const first = label.textContent;
+  assert.ok(trendPhrases.some(phrase => first.includes(phrase)));
+  chart.update(calculateRcv([[2]], [1,2,3]));
+  assert.equal(label.textContent, first);
+});

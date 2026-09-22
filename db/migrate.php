@@ -13,3 +13,5 @@ echo "Movie comments storage is up to date.\n";
 
 LGFC\MovieNights::migrate(LGFC\Database::connect());
 echo "Movie-night announcements storage is up to date.\n";
+
+LGFC\ElectionDraw::migrate(LGFC\Database::connect());

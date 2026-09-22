@@ -28,7 +28,7 @@ final class Navigation
         <a class="skip-link" href="#main-content">Skip to page content</a>
         <div class="site-shell">
         <header class="site-header">
-            <div class="site-identity"><a class="site-brand" href="index.php">Little Gay Film Club™</a><span class="site-motto">The business of choosing a film.</span></div>
+            <div class="site-identity"><a class="site-brand" href="index.php">Little Gay Film Club™</a><span class="site-motto">What if chaos but democratic and gay?</span></div>
             <a class="account-link" href="account.php"><?= Web::escape($viewer['display_name']) ?><span><?= $viewer['role'] === 'organiser' ? 'Organiser' : 'Member' ?></span></a>
         </header>
         <nav class="primary-nav" aria-label="Main navigation">

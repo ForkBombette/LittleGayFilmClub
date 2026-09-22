@@ -20,9 +20,9 @@ The core application is implemented and hosted. This page tracks current scope; 
 
 Tighten page layouts, labels, navigation and information density after using the core flows. Retain the detailed round tables for now. Changes should keep keyboard access, narrow-screen use and clear separation of drafts from committed results.
 
-## Discussed change, not implemented
+## Recent improvements
 
-Exclude the currently announced film from the pool when opening a new election, while retaining existing election snapshots. Clearing the announcement would make it eligible again only if still active. This is Sophie's separate work in progress; it is not part of the documentation cleanup and should remain a separate change/commit.
+Scheduled films are excluded from new elections and the Not in this election shelf. Elections draw 5 or 8 films, prioritise three-skip candidates, allow one guaranteed film, and retain the eligible pool and selection reasons. The graph cycles through canned statistical nonsense.
 
 ## Remaining optional work
 

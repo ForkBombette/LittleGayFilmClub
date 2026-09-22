@@ -228,3 +228,14 @@ Tests: npm test in frontend, including gesture classification, result immutabili
 ## Session/CSRF diagnostics
 
 Web::checkCsrf rejects invalid/missing tokens with 403 and a support reference, plus csrf_failed in JSON. The matching LGFC entry in PHP's error log contains only request/session metadata; never log raw tokens, cookie/session identifiers, request bodies or URL queries. Web::start also logs failed session startup. Authentication, cookie behaviour and CSRF checks remain enforced; diagnostics must not retry or automatically resubmit writes. See DEPLOYMENT.md for interpretation. Test with tests/web_test.ps1 using an isolated temporary PHP server; it does not access the database.
+## Election draws and recorded selection
+
+Opening an election draws either 5 or 8 films from active, unscheduled films. One eligible film may be guaranteed, within that total. After placing it, films missed in at least three consecutive eligible draws get priority; oversubscribed priority places are random, then remaining places are drawn randomly from the rest. A smaller pool includes all eligible films.
+
+The draw, candidate snapshot and full eligible pool audit are saved in the same transaction. Candidate selection details in Elections show Random draw, Random draw — three-skip priority, Guaranteed, or Not selected, plus prior skip counts. Selected films reset their count. Ineligible elections do not add skips; cancelled elections neither add skips nor reset them. Historical elections without a recorded draw have unknown methods and do not contribute inferred skips. Counting begins with recorded draws after this upgrade.
+
+The scheduled active film is also omitted from Not in this election; clearing the announcement restores it if still active. Watched history remains available, and existing election snapshots never change due to scheduling.
+
+Upgrade with php db/migrate.php after backing up the database. This adds election_draws and election_draw_movies without rewriting previous elections or ballots. Build the frontend for the six new decorative graph phrases, selected once per displayed round per chart instance to avoid flicker during dragging. They never affect the trend calculation or RCV.
+
+Tests: tests/election_draw_test.php, existing election/movie-night suites and npm test. Exercise 5/8 selection, optional guarantee, undersized pools, a scheduled guarantee rejected after a stale page load, priority overflow and the saved audit. Existing RCV and ballot snapshot rules are unchanged.
